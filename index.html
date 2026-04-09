@@ -293,6 +293,31 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 .mi{flex:1;display:flex;flex-direction:column;align-items:center;gap:1px;cursor:pointer;color:var(--sub);font-size:8px;letter-spacing:1px;text-transform:uppercase;font-family:var(--fd);padding:6px 0;}
 .mi.active{color:var(--red);}
 .mi-ic{font-size:16px;}
+/* RECURRENCE BUTTONS */
+.recur-btn{padding:4px 11px;border-radius:20px;border:1px solid var(--border2);background:var(--card);color:var(--sub);font-family:var(--fd);font-size:11px;font-weight:700;cursor:pointer;transition:all .15s;}
+.recur-btn.active{color:#fff;border-color:var(--red);background:var(--red-glow);}
+/* TEAM ABSENCE BLOCKS */
+.team-abs-block{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:13px 15px;margin-bottom:10px;}
+.team-abs-header{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+.team-abs-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.team-abs-name{font-family:var(--fd);font-size:16px;font-weight:700;letter-spacing:1px;text-transform:uppercase;}
+.team-abs-meta{font-size:11px;color:var(--sub);margin-bottom:8px;}
+.team-abs-missing{display:flex;flex-wrap:wrap;gap:5px;}
+.abs-pill{font-size:10px;padding:3px 9px;border-radius:8px;background:#2a0d0d;color:#e05555;border:1px solid #5a1a1a;font-weight:600;}
+.abs-pill-camp{background:var(--purple-bg)!important;color:var(--purple-lt)!important;border-color:var(--purple)!important;}
+.abs-pill-doc{background:var(--blue-bg)!important;color:var(--blue-lt)!important;border-color:var(--blue)!important;}
+.abs-pill-ok{background:var(--green-bg)!important;color:var(--green-lt)!important;border-color:var(--green)!important;}
+/* COVER BADGE */
+.cover-badge{font-size:9px;color:var(--purple-lt);background:#1a0a2e;border-radius:3px;padding:2px 5px;margin-top:1px;border-left:2px solid var(--purple);}
+/* DEV CLASS PILLS */
+.dev-cls-btn{padding:3px 9px;border-radius:20px;border:1px solid var(--border2);background:var(--card);color:var(--sub);font-size:10px;font-weight:600;cursor:pointer;transition:all .15s;}
+.dev-cls-btn.active{background:var(--teal-bg);border-color:var(--teal);color:var(--teal);}
+/* CALENDAR DAY SELECTED */
+.abs-cal-day{background:var(--card);border:1px solid var(--border);border-radius:5px;min-height:44px;padding:4px;cursor:pointer;transition:all .15s;}
+.abs-cal-day:hover{border-color:var(--border2);}
+.abs-cal-day.selected{background:rgba(204,26,26,.1);border-color:var(--red);}
+.abs-cal-day.has-abs{border-color:#5a1a1a;background:#1a0808;}
+.abs-cal-day.empty{background:#0d0d0d;border-color:#161616;cursor:default;}
 </style>
 </head>
 <body>
@@ -390,12 +415,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 </div>
 
 <div id="page-absences" class="page">
-  <div class="ph"><div><div class="pt">Team Absences</div><div class="ps">Athletes update Google Sheets directly — pulls live</div></div>
-  <div class="ha"><button class="bg" onclick="syncSheets()">↻ Sync Now</button></div></div>
-  <div class="sync-info"><span>🔗</span><div>Connected to <strong>6 team Google Sheets</strong>. Click <strong>↻ Sync Now</strong> to pull latest absences. For auto-sync on load, publish each sheet: <em>File → Share → Publish to web → CSV</em>. <span id="last-sync-lbl" style="color:var(--green-lt);"></span></div></div>
+  <div class="ph"><div><div class="pt">Team Absences</div><div class="ps">Missing athletes by team · Select a date to see details</div></div>
+  <div class="ha"><button class="bg" onclick="syncSheets()">↻ Sync Sheets</button></div></div>
   <div class="tf-bar" id="team-filters"></div>
   <div class="wn"><button class="na" onclick="changeAbsMonth(-1)">&#8592;</button><div class="wl" id="abs-mlbl"></div><button class="na" onclick="changeAbsMonth(1)">&#8594;</button></div>
-  <div class="ac" id="abs-cal"></div>
+  <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:3px;" id="abs-cal-hdr"></div>
+  <div class="ac" id="abs-cal" style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;"></div>
+  <div id="abs-team-blocks" style="margin-top:14px;"></div>
 </div>
 
 <div id="page-competitions" class="page">
@@ -480,30 +506,72 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 </div>
 
 <!-- ADD/EDIT CLASS -->
-<div class="mo" id="m-addclass"><div class="md">
+<div class="mo" id="m-addclass"><div class="md" style="max-width:460px;">
   <div class="mt" id="cls-modal-title">Add Class / Shift</div>
-  <div class="fg"><label class="fl">Class name</label><input class="fi" id="cl-name" placeholder="Tots, Combo, Cheer Camp..."/></div>
+  <div class="fg"><label class="fl">Class Name</label><input class="fi" id="cl-name" placeholder="e.g. Tots, Fun Friday, Birthday Party…"/></div>
   <div class="fr">
-    <div class="fg"><label class="fl">Day</label><select class="fi" id="cl-day"><option>Sunday</option><option>Monday</option><option selected>Tuesday</option><option>Wednesday</option><option>Thursday</option><option>Friday</option><option>Saturday</option></select></div>
-    <div class="fg"><label class="fl">Time</label><input class="fi" id="cl-time" placeholder="5:00–5:45"/></div>
+    <div class="fg"><label class="fl">Day of Week</label><select class="fi" id="cl-day"><option value="0">Sunday</option><option value="1">Monday</option><option value="2" selected>Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option></select></div>
+    <div class="fg"><label class="fl">Time</label><input class="fi" id="cl-time" placeholder="5:00–5:45 PM"/></div>
   </div>
-  <div class="fg"><label class="fl">Time slot row</label><select class="fi" id="cl-slot"><option value="0">Slot 1 — 4pm area</option><option value="1" selected>Slot 2 — 5pm area</option><option value="2">Slot 3 — 6pm area</option><option value="3">Slot 4 — 7pm area</option></select></div>
-  <div class="fg"><label class="fl">Assign Staff (select multiple)</label><div class="msp" id="cl-staff-picker"></div></div>
-  <div class="fg"><label class="fl">Class type</label>
+  <div class="fg"><label class="fl">Class Type</label>
     <div class="cps">
-      <div class="cpsw sel" style="background:var(--green)" data-type="tots" onclick="pickType(this)" title="Tots"></div>
+      <div class="cpsw sel" style="background:var(--green)" data-type="tots" onclick="pickType(this)" title="Tots/Dev"></div>
       <div class="cpsw" style="background:var(--blue)" data-type="combo" onclick="pickType(this)" title="Combo"></div>
-      <div class="cpsw" style="background:var(--amber)" data-type="tnt" onclick="pickType(this)" title="T&T"></div>
+      <div class="cpsw" style="background:var(--amber)" data-type="tnt" onclick="pickType(this)" title="T&amp;T"></div>
       <div class="cpsw" style="background:var(--red)" data-type="cheer" onclick="pickType(this)" title="Cheer"></div>
-      <div class="cpsw" style="background:var(--purple)" data-type="camp" onclick="pickType(this)" title="Camp"></div>
-      <div class="cpsw" style="background:var(--teal)" data-type="custom" onclick="pickType(this)" title="Custom"></div>
+      <div class="cpsw" style="background:var(--purple)" data-type="funfri" onclick="pickType(this)" title="Fun Friday"></div>
+      <div class="cpsw" style="background:var(--teal)" data-type="bday" onclick="pickType(this)" title="Birthday Party"></div>
       <div class="cpsw" style="background:#555" data-type="office" onclick="pickType(this)" title="Office"></div>
     </div>
+    <div style="display:flex;flex-wrap:wrap;gap:4px;margin-top:5px;font-size:9px;color:var(--sub);">
+      <span style="background:var(--green-bg);padding:1px 5px;border-radius:3px;">Tots/Dev</span>
+      <span style="background:var(--blue-bg);padding:1px 5px;border-radius:3px;">Combo</span>
+      <span style="background:var(--amber-bg);padding:1px 5px;border-radius:3px;">T&amp;T</span>
+      <span style="background:rgba(204,26,26,.1);padding:1px 5px;border-radius:3px;">Cheer</span>
+      <span style="background:var(--purple-bg);padding:1px 5px;border-radius:3px;">Fun Fri</span>
+      <span style="background:var(--teal-bg);padding:1px 5px;border-radius:3px;">Bday Party</span>
+      <span style="background:#1a1a1a;padding:1px 5px;border-radius:3px;">Office</span>
+    </div>
   </div>
+  <div class="fg"><label class="fl">Recurrence</label>
+    <div style="display:flex;flex-wrap:wrap;gap:5px;margin-top:4px;" id="recur-btns">
+      <button class="recur-btn active" data-recur="weekly" onclick="pickRecur(this)">Every Week</button>
+      <button class="recur-btn" data-recur="biweekly" onclick="pickRecur(this)">Every 2 Weeks</button>
+      <button class="recur-btn" data-recur="monthly" onclick="pickRecur(this)">Monthly</button>
+      <button class="recur-btn" data-recur="once" onclick="pickRecur(this)">One-Time Only</button>
+      <button class="recur-btn" data-recur="daily" onclick="pickRecur(this)">Daily</button>
+    </div>
+  </div>
+  <div class="fg" id="cl-startdate-row" style="display:none;"><label class="fl">Start / Specific Date</label><input class="fi" id="cl-startdate" type="date"/></div>
+  <div class="fg" id="cl-enddate-row" style="display:none;"><label class="fl">End Date (optional — leave blank for no end)</label><input class="fi" id="cl-enddate" type="date"/></div>
+  <div class="fg"><label class="fl">Assign Staff</label><div class="msp" id="cl-staff-picker"></div></div>
   <div class="mac">
     <button class="bp" onclick="saveClass()">Save Class</button>
     <button class="bcn" id="del-cls-btn" style="display:none;background:#2a0d0d;color:#e05555;border-color:#5a1a1a;" onclick="deleteEditingClass()">Remove This Class</button>
     <button class="bcn" onclick="closeModal('m-addclass')">Cancel</button>
+  </div>
+</div></div>
+
+<!-- DATE OVERRIDE MODAL (this date only) -->
+<div class="mo" id="m-override"><div class="md" style="max-width:460px;">
+  <div class="mt" id="ov-title">Edit This Date Only</div>
+  <div style="background:var(--amber-bg);border:1px solid var(--amber);border-radius:7px;padding:8px 12px;font-size:11px;color:var(--amber-lt);margin-bottom:12px;">
+    ⚡ Changes here apply to <strong>this date only</strong> — the recurring series is unaffected.
+  </div>
+  <div class="fg"><label class="fl">Time Override (leave blank to keep original)</label><input class="fi" id="ov-time" placeholder="e.g. 4:00–5:00 PM"/></div>
+  <div class="fg"><label class="fl">Staff for This Date</label><div class="msp" id="ov-staff-picker"></div></div>
+  <div style="background:var(--purple-bg);border:1px solid rgba(142,68,173,.3);border-radius:7px;padding:10px;margin-bottom:10px;">
+    <div style="font-family:var(--fd);font-size:12px;font-weight:700;letter-spacing:1px;color:var(--purple-lt);margin-bottom:8px;">👥 COVER / SUBSTITUTION</div>
+    <div class="fg"><label class="fl">Covering Staff Member</label><select class="fi" id="ov-cover-staff"><option value="">— None —</option></select></div>
+    <div class="fg"><label class="fl">Covering For (who they are subbing for)</label><select class="fi" id="ov-cover-for"><option value="">— Select —</option></select></div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+    <input type="checkbox" id="ov-cancel" style="accent-color:var(--red);width:14px;height:14px;"/>
+    <label for="ov-cancel" style="font-size:12px;color:var(--sub);">Cancel this date only (series continues)</label>
+  </div>
+  <div class="mac">
+    <button class="bp" onclick="saveOverride()">Save This Date</button>
+    <button class="bcn" onclick="closeModal('m-override')">Cancel</button>
   </div>
 </div></div>
 
@@ -518,6 +586,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
   <div class="fg"><label class="fl">Email (for notifications)</label><input class="fi" id="st-email" type="email" placeholder="staff@email.com"/></div>
   <div class="fg"><label class="fl">Phone (optional)</label><input class="fi" id="st-phone" placeholder="806-555-0000"/></div>
   <div class="fg"><label class="fl">Assigned Teams</label><div id="st-team-picks" style="display:flex;flex-wrap:wrap;gap:5px;margin-top:4px;"></div></div>
+  <div class="fg"><label class="fl">Developmental Classes</label>
+    <div style="font-size:10px;color:var(--sub);margin-bottom:5px;">Select all dev classes this staff member teaches</div>
+    <div id="st-devcls-picks" style="display:flex;flex-wrap:wrap;gap:5px;"></div>
+  </div>
   <div class="fg"><label class="fl">Status</label><select class="fi" id="st-status"><option value="avail">Available</option><option value="out">Out</option></select></div>
   <div class="mac">
     <button class="bp" onclick="saveStaff()">Save Staff Member</button>
@@ -600,7 +672,13 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 
 <!-- EMAIL PREVIEW -->
 <div class="mo" id="m-email-preview"><div class="md" style="max-width:520px;">
-  <div class="mt">📧 Schedule Email Preview</div>
+  <div class="mt">📧 Send Schedule Email</div>
+  <div class="fg" style="margin-bottom:10px;">
+    <label class="fl">Send To</label>
+    <select class="fi" id="email-target-staff" onchange="updateEmailPreview()">
+      <option value="all">All Staff (weekly auto-send)</option>
+    </select>
+  </div>
   <div style="background:#0a0a0a;border:1px solid var(--border);border-radius:8px;padding:16px;font-family:var(--fb);margin-bottom:12px;max-height:360px;overflow-y:auto;" id="email-preview-body"></div>
   <div style="font-size:11px;color:var(--sub);margin-bottom:10px;">In production this sends automatically every Sunday at 3:00 PM via your email provider to every staff member who has an email on file.</div>
   <div class="mac">
@@ -703,6 +781,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 <div class="toast" id="toast"></div>
 
 <script>
+const DEV_CLASSES = ['Tots','Mini T&T','Mini Combo','Jr. Combo','Jr. T&T','Dev. Hip Hop','Back Handsprings','Beginner Tumbling','Tucks','Birthday Parties','Fun Fridays'];
+
 let TEAMS=[
   {name:'Envy',      color:'#CC1A1A', sheet:'1XHySa5OaOjxKQEHnuR3mvWXKPROf83PVOYDw7VIbLLE'},
   {name:'Sr. Black', color:'#888888', sheet:'1zuhzY6koK9Ali48q9LuwdLIMOnmQswa743GffzBYLJ8'},
@@ -760,488 +840,15 @@ let specialDates=[
 
 // absData: sourced directly from Google Sheets. practices = gym schedule events, absences = athlete out entries.
 // ENVY fully parsed from sheet. Other 5 teams pending sheet access (share publicly to auto-sync).
-const absData={
-  'Envy':{
-    practices:{
-      '2025-5-26':['GYM CLOSED — Memorial Day'],
-      '2025-5-27':['Building Choreo: 5:30–7:00 PM','Tumbling: 7:00–8:00 PM'],
-      '2025-6-3': ['Building Choreo: 5:30–7:00 PM','Tumbling: 7:00–8:00 PM'],
-      '2025-6-10':['Building Choreo: 5:30–7:00 PM','Tumbling: 7:00–8:00 PM'],
-      '2025-6-17':['Building Choreo: 5:30–7:00 PM','Tumbling: 7:00–8:00 PM'],
-      '2025-6-24':['Building Choreo: 5:30–7:00 PM','Tumbling: 7:00–8:00 PM'],
-      '2025-6-30':['NO TEAM PRACTICES — Summer Break'],
-      '2025-7-8': ['Building Choreo: 5:30–7:00 PM','Tumbling: 7:00–8:00 PM'],
-      '2025-7-15':['Building Choreo: 5:30–7:00 PM','Tumbling: 7:00–8:00 PM'],
-      '2025-7-16':['Building Skill Choreography: 5:30–7:00 PM'],
-      '2025-7-17':['Building Skill Choreography: 5:30–7:00 PM'],
-      '2025-7-22':['NO PRACTICE — Senior Building Choreo'],
-      '2025-7-23':['Building Choreo: 5:30–7:00 PM','Tumbling: 7:00–8:00 PM'],
-      '2025-7-28':['Parent Meeting: 7:00 PM'],
-      '2025-7-29':['NO PRACTICE — Senior Building Choreo'],
-      '2025-7-30':['Practice: 5:30–7:00 PM','Tumbling: 7:00–8:00 PM'],
-    },
-    absences:{
-      // May 27
-      '2025-5-27':[{name:'Kylee',type:'doc',note:'Doctor excuse'},{name:'Piper',type:'oot',note:'OOT'},{name:'Kataleya',type:'oot',note:'OOT'}],
-      // May 28
-      '2025-5-28':[{name:'Piper',type:'oot',note:'OOT'}],
-      // May 29
-      '2025-5-29':[{name:'Piper',type:'oot',note:'OOT'},{name:'Kataleya',type:'oot',note:'OOT'}],
-      // May 30 (Thur)
-      '2025-5-30':[{name:'Piper',type:'oot',note:'OOT'},{name:'Kataleya',type:'oot',note:'OOT'}],
-      // June 1 (Sun) — practice week
-      '2025-6-1': [{name:'Lillian',type:'oot',note:'OOT'}],
-      '2025-6-2': [{name:'Lillian',type:'oot',note:'OOT'}],
-      '2025-6-3': [{name:'Kylee',type:'doc',note:'Doctor excuse'},{name:'Lillian',type:'oot',note:'OOT'}],
-      '2025-6-4': [{name:'Lillian',type:'oot',note:'OOT'}],
-      '2025-6-5': [{name:'Lillian',type:'oot',note:'OOT'},{name:'Kataleya',type:'oot',note:'OOT'}],
-      '2025-6-6': [{name:'Lillian',type:'oot',note:'OOT'}],
-      // June 9–14
-      '2025-6-9': [{name:'Charlotte',type:'camp',note:'Camp 8–12'},{name:'Breelyn',type:'camp',note:'Camp 9–12'}],
-      '2025-6-10':[{name:'Charlotte',type:'camp',note:'Camp 8–12'},{name:'Breelyn',type:'camp',note:'Camp 9–12'},{name:'Kylee',type:'doc',note:'Doctor excuse'}],
-      '2025-6-11':[{name:'Charlotte',type:'camp',note:'Camp 8–12'},{name:'Breelyn',type:'camp',note:'Camp 9–12'}],
-      '2025-6-12':[{name:'Breelyn',type:'camp',note:'Camp 9–12'}],
-      '2025-6-13':[{name:'Charlotte',type:'oot',note:'OOT'},{name:'Breelyn',type:'oot',note:'OOT'}],
-      '2025-6-14':[{name:'Breelyn',type:'oot',note:'OOT'},{name:'Kataleya',type:'oot',note:'OOT'}],
-      // June 15–21
-      '2025-6-15':[{name:'Charlotte',type:'oot',note:'OOT'},{name:'Lillian',type:'oot',note:'OOT'},{name:'Breelyn',type:'oot',note:'OOT'}],
-      '2025-6-16':[{name:'Lillian',type:'oot',note:'OOT'}],
-      '2025-6-17':[{name:'Lillian',type:'oot',note:'OOT'}],
-      '2025-6-18':[{name:'Lillian',type:'oot',note:'OOT'}],
-      '2025-6-19':[{name:'Lillian',type:'oot',note:'OOT'},{name:'Kata',type:'oot',note:'Out of town'}],
-      '2025-6-20':[{name:'Lillian',type:'oot',note:'OOT'},{name:'Kata',type:'oot',note:'Out of town'}],
-      // June 22–28
-      '2025-6-22':[{name:'Kata',type:'oot',note:'Out of town'}],
-      '2025-6-23':[{name:'Kata',type:'oot',note:'Out of town'},{name:'Lillian',type:'camp',note:'Camp 8:30–11:30 AM'}],
-      '2025-6-24':[{name:'Emma',type:'oot',note:'Out of town'},{name:'Lillian',type:'camp',note:'Camp 8:30–11:30 AM'},{name:'Alli',type:'camp',note:'Preteen Camp'},{name:'Charlotte',type:'camp',note:'Preteen camp'}],
-      '2025-6-25':[{name:'Lillian',type:'camp',note:'Camp 8:30–11:30 AM'}],
-      '2025-6-26':[{name:'Emma',type:'oot',note:'OOT'},{name:'Lillian',type:'camp',note:'Camp 8:30–11:30 AM'},{name:'Alli',type:'camp',note:'Preteen Camp'},{name:'Charlotte',type:'camp',note:'Preteen camp'}],
-      '2025-6-27':[{name:'Emma',type:'oot',note:'OOT'},{name:'Lillian',type:'camp',note:'Camp 8:30–11:30 AM'}],
-      '2025-6-28':[{name:'Emma',type:'oot',note:'OOT'},{name:'Lillian',type:'camp',note:'Camp 8:30–11:30 AM'},{name:'Alli',type:'camp',note:'Preteen Camp'},{name:'Charlotte',type:'camp',note:'Preteen camp'}],
-      // June 29–30
-      '2025-6-29':[{name:'Alli',type:'camp',note:'Preteen Camp'},{name:'Lillian',type:'oot',note:'OOT'},{name:'Charlotte',type:'camp',note:'Preteen camp'},{name:'Kata',type:'oot',note:'Out of town'}],
-      '2025-6-30':[{name:'Kata',type:'oot',note:'Out of town'}],
-      // July 1–5
-      '2025-7-1': [{name:'Kata',type:'oot',note:'Out of town'}],
-      '2025-7-2': [{name:'Emma',type:'oot',note:'OOT'},{name:'Lillian',type:'oot',note:'OOT'},{name:'Kataleya',type:'oot',note:'OOT'}],
-      '2025-7-3': [{name:'Emma',type:'oot',note:'OOT'},{name:'Lillian',type:'oot',note:'OOT'},{name:'Kataleya',type:'oot',note:'OOT'}],
-      // July 6–12
-      '2025-7-6': [{name:'Charlotte',type:'oot',note:'OOT'},{name:'Emma',type:'oot',note:'OOT'},{name:'Lillian',type:'oot',note:'OOT'},{name:'Kataleya',type:'oot',note:'OOT'}],
-      '2025-7-7': [{name:'Charlotte',type:'oot',note:'OOT'},{name:'Emma',type:'oot',note:'OOT'}],
-      '2025-7-8': [{name:'Charlotte',type:'oot',note:'OOT'},{name:'Emma',type:'oot',note:'OOT'}],
-      '2025-7-9': [{name:'Emma',type:'oot',note:'OOT'},{name:'Breelyn',type:'oot',note:'OOT'}],
-      '2025-7-10':[{name:'Emma',type:'oot',note:'OOT'},{name:'Breelyn',type:'oot',note:'OOT'},{name:'Kataleya',type:'oot',note:'OOT'}],
-      '2025-7-11':[{name:'Emma',type:'oot',note:'OOT'},{name:'Breelyn',type:'oot',note:'OOT'},{name:'Kataleya',type:'oot',note:'OOT'}],
-      '2025-7-12':[{name:'Breelyn',type:'oot',note:'OOT'}],
-      // July 13–19
-      '2025-7-13':[{name:'Breelyn',type:'oot',note:'OOT'},{name:'Kataleya',type:'oot',note:'OOT'}],
-      '2025-7-14':[{name:'Breelyn',type:'oot',note:'OOT'},{name:'Charlotte',type:'camp',note:'Camp 8–12'}],
-      '2025-7-15':[{name:'Breelyn',type:'oot',note:'OOT'},{name:'Charlotte',type:'camp',note:'Camp 8–12'},{name:'Kynnedi',type:'oot',note:'OOT'}],
-      '2025-7-16':[{name:'Breelyn',type:'oot',note:'OOT'},{name:'Kynnedi',type:'oot',note:'OOT'}],
-      '2025-7-17':[{name:'Kynnedi',type:'oot',note:'OOT'},{name:'Mae',type:'oot',note:'OOT'}],
-      '2025-7-18':[{name:'Mae',type:'oot',note:'OOT'}],
-      '2025-7-19':[{name:'Mae',type:'oot',note:'OOT'},{name:'Kataleya',type:'oot',note:'OOT'}],
-      // July 20–26
-      '2025-7-20':[{name:'Mae',type:'oot',note:'OOT'},{name:'Emma',type:'oot',note:'OOT'},{name:'Kylee',type:'oot',note:'OOT'},{name:'Piper',type:'camp',note:'Camp Blue Haven'}],
-      '2025-7-21':[{name:'Mae',type:'oot',note:'OOT'},{name:'Emma',type:'oot',note:'OOT'},{name:'Piper',type:'camp',note:'Camp'}],
-      '2025-7-22':[{name:'Emma',type:'oot',note:'OOT'},{name:'Piper',type:'camp',note:'Camp'}],
-      '2025-7-23':[{name:'Lillian',type:'oot',note:'OOT'},{name:'Emma',type:'oot',note:'OOT'},{name:'Piper',type:'camp',note:'Camp'}],
-      '2025-7-24':[{name:'Lillian',type:'oot',note:'OOT'},{name:'Emma',type:'oot',note:'OOT'},{name:'Piper',type:'camp',note:'Camp'}],
-      '2025-7-25':[{name:'Lillian',type:'oot',note:'OOT'},{name:'Piper',type:'camp',note:'Camp'}],
-      '2025-7-26':[{name:'Lillian',type:'oot',note:'OOT'},{name:'Piper',type:'camp',note:'Camp'}],
-      // July 27–31
-      '2025-7-27':[{name:'Emma',type:'oot',note:'OOT'},{name:'Lillian',type:'oot',note:'OOT'},{name:'Piper',type:'camp',note:'Camp'}],
-      '2025-7-28':[{name:'Emma',type:'oot',note:'OOT'},{name:'Lillian',type:'oot',note:'OOT'},{name:'Piper',type:'camp',note:'Camp'}],
-      '2025-7-29':[{name:'Emma',type:'oot',note:'OOT'},{name:'Lillian',type:'oot',note:'OOT'},{name:'Piper',type:'camp',note:'Camp'}],
-      '2025-7-30':[{name:'Emma',type:'oot',note:'OOT'},{name:'Lillian',type:'oot',note:'OOT'},{name:'Piper',type:'camp',note:'Camp'}],
-      '2025-7-31':[{name:'Breelyn',type:'oot',note:'Out'},{name:'Lillian',type:'oot',note:'OOT'},{name:'Piper',type:'camp',note:'Camp'}],
-    }
-  },
-  'Sr. Black':{
-    practices:{
-      '2025-5-26':['GYM CLOSED — Memorial Day'],
-      '2025-6-2': ['Building Choreo: 5:30–7:00 PM','Tumbling: 7:00–8:00 PM'],
-      '2025-6-9': ['Building Choreo: 5:30–7:00 PM','Tumbling: 7:00–8:00 PM'],
-      '2025-6-16':['Building Choreo: 5:30–7:00 PM','Tumbling: 7:00–8:00 PM'],
-      '2025-6-23':['Building Choreo: 5:30–7:00 PM','Tumbling: 7:00–8:00 PM'],
-      '2025-6-30':['NO TEAM PRACTICES — Summer Break'],
-      '2025-7-7': ['Building Choreo: 5:30–7:00 PM','Tumbling: 7:00–8:00 PM'],
-      '2025-7-14':['Building Choreo: 5:30–7:00 PM','Tumbling: 7:00–8:00 PM'],
-      '2025-7-16':['Building Skill Choreography: 7:00–9:00 PM'],
-      '2025-7-21':['Building Choreo: 5:30–7:00 PM','Tumbling: 7:00–8:00 PM'],
-      '2025-7-22':['Building Skill Choreography: 5:30–8:30 PM'],
-      '2025-7-28':['Practice: 5:30–7:00 PM','Tumbling: 7:00–8:00 PM','Parent Meeting: 7:00 PM'],
-      '2025-7-29':['Building Skill Choreography: 5:30–8:30 PM'],
-    },
-    absences:{
-      // May 27–31
-      '2025-5-27':[{name:'Brantlie',type:'camp',note:'FHS Cheer Camp TBA'},{name:'Ryleigh',type:'camp',note:'Church camp'}],
-      '2025-5-28':[{name:'Halle',type:'camp',note:'Cheer 9–11'},{name:'Brantlie',type:'camp',note:'FHS Cheer Camp TBA'},{name:'Ryleigh',type:'camp',note:'Church camp'}],
-      '2025-5-29':[{name:'Halle',type:'camp',note:'Cheer 9–11'},{name:'Brantlie',type:'camp',note:'FHS Cheer Camp TBA'},{name:'Ryleigh',type:'camp',note:'Church camp'}],
-      '2025-5-28':[{name:'Brantlie',type:'camp',note:'FHS Cheer 4–5:30'}],
-      // June 1–7
-      '2025-6-1': [{name:'Ryleigh',type:'camp',note:'Church camp'}],
-      '2025-6-2': [{name:'Mikayla H.',type:'doc',note:'Doctor appointment'},{name:'Ryleigh',type:'camp',note:'HS cheer 1–4'},{name:'adalyn',type:'oot',note:'Mission trip'}],
-      '2025-6-3': [{name:'Halle',type:'camp',note:'Cheer Camp 9–4'},{name:'Ryleigh',type:'camp',note:'HS cheer 1–4'},{name:'adalyn',type:'oot',note:'Mission trip'}],
-      '2025-6-4': [{name:'Halle',type:'camp',note:'Cheer Camp 9–4'},{name:'Ryleigh',type:'camp',note:'HS cheer 1–4'},{name:'adalyn',type:'oot',note:'Mission trip'},{name:'Mar',type:'oot',note:'Out early eve'}],
-      '2025-6-5': [{name:'Halle',type:'camp',note:'Cheer Pics'},{name:'adalyn',type:'oot',note:'Mission trip'},{name:'Lula',type:'camp',note:'HS Camp'}],
-      '2025-6-6': [{name:'Halle',type:'oot',note:'OOT church camp'},{name:'adalyn',type:'oot',note:'Mission trip'},{name:'Lula',type:'camp',note:'HS Camp'}],
-      '2025-6-7': [{name:'Halle',type:'oot',note:'OOT church camp'},{name:'Lula',type:'camp',note:'HS Camp'}],
-      // June 8–14
-      '2025-6-8': [{name:'Halle',type:'oot',note:'OOT church camp'},{name:'Ryleigh',type:'oot',note:'Cheer pics TBA'},{name:'Maddie',type:'oot',note:'OOT'},{name:'Lula',type:'camp',note:'HS Camp'}],
-      '2025-6-9': [{name:'adalyn',type:'camp',note:'Church camp'},{name:'Maddie',type:'oot',note:'OOT'},{name:'Makayla',type:'oot',note:'Out'},{name:'Mikayla H.',type:'oot',note:'Out of town church camp'},{name:'Ryleigh',type:'oot',note:'OOT cheer camp'},{name:'Brantlie',type:'camp',note:'FHS Cheer 8:30am–12pm'},{name:'Halle',type:'oot',note:'OOT church camp'}],
-      '2025-6-10':[{name:'adalyn',type:'camp',note:'Church camp'},{name:'Maddie',type:'oot',note:'OOT'},{name:'Makayla',type:'oot',note:'Out'},{name:'Ryleigh',type:'oot',note:'OOT cheer camp'},{name:'Brantlie',type:'camp',note:'FHS Cheer 8:30am–12pm'},{name:'Halle',type:'oot',note:'OOT church camp'}],
-      '2025-6-11':[{name:'adalyn',type:'camp',note:'Church camp'},{name:'Makayla',type:'oot',note:'Out'},{name:'Ryleigh',type:'oot',note:'OOT cheer camp'},{name:'Brantlie',type:'camp',note:'FHS Cheer 8:30am–12pm'}],
-      '2025-6-12':[{name:'Ryleigh',type:'oot',note:'OOT cheer camp'},{name:'Makayla',type:'oot',note:'Out'}],
-      '2025-6-13':[{name:'Maddie',type:'oot',note:'OOT'},{name:'Makayla',type:'oot',note:'Out'},{name:'Lula',type:'camp',note:'HS Camp'}],
-      '2025-6-14':[{name:'Maddie',type:'oot',note:'OOT'},{name:'Lula',type:'camp',note:'HS Camp'}],
-      // June 15–21
-      '2025-6-15':[{name:'Ryleigh',type:'oot',note:'OOT'},{name:'Lula',type:'camp',note:'Camp 1:30–4'}],
-      '2025-6-16':[{name:'Lula',type:'camp',note:'Camp 1:30–4'}],
-      '2025-6-17':[{name:'Lula',type:'camp',note:'Camp 1:30–4'}],
-      '2025-6-19':[{name:'Halle',type:'oot',note:'OOT'},{name:'Lula',type:'camp',note:'HS Camp'}],
-      '2025-6-20':[{name:'Halle',type:'oot',note:'OOT'},{name:'Lula',type:'camp',note:'HS Camp'}],
-      '2025-6-21':[{name:'Halle',type:'oot',note:'OOT'},{name:'Lula',type:'camp',note:'HS Camp'}],
-      // June 22–28
-      '2025-6-22':[{name:'Halle',type:'oot',note:'OOT'}],
-      '2025-6-23':[{name:'Addie',type:'camp',note:'VBS'}],
-      '2025-6-26':[{name:'Ryleigh',type:'oot',note:'Out in evening'}],
-      // June 29–30
-      '2025-6-30':[{name:'Maddie',type:'camp',note:'LHS 10–12'}],
-      // July 1–5
-      '2025-7-2': [{name:'LHS',type:'oot',note:'4th on Broadway TBD'}],
-      '2025-7-6': [{name:'Maddie',type:'camp',note:'LHS 10–12'}],
-      '2025-7-7': [{name:'Maddie',type:'camp',note:'LHS 10–12'}],
-      '2025-7-8': [{name:'Maddie',type:'camp',note:'LHS 10–12'}],
-      // July 6–12
-      '2025-7-9': [{name:'Ryleigh',type:'oot',note:'OOT'},{name:'Maddie',type:'camp',note:'LHS Cheer Camp'},{name:'Makayla',type:'oot',note:'OOT'}],
-      '2025-7-10':[{name:'Lula',type:'camp',note:'Church Camp'},{name:'Ryleigh',type:'oot',note:'OOT'},{name:'Makayla',type:'oot',note:'OOT'}],
-      '2025-7-11':[{name:'Lula',type:'camp',note:'Church Camp'},{name:'Ryleigh',type:'oot',note:'OOT'},{name:'Makayla',type:'oot',note:'OOT'}],
-      '2025-7-12':[{name:'Lula',type:'camp',note:'Church Camp'},{name:'Ryleigh',type:'oot',note:'OOT'},{name:'Makayla',type:'oot',note:'OOT'}],
-      '2025-7-7': [{name:'Maddie',type:'camp',note:'LHS Cheer Camp'},{name:'Brantlie',type:'camp',note:'FHS Cheer 6–8pm'}],
-      // July 13–19
-      '2025-7-13':[{name:'Lula',type:'camp',note:'Church Camp'},{name:'Ryleigh',type:'oot',note:'OOT'},{name:'Makayla',type:'oot',note:'OOT'}],
-      '2025-7-14':[{name:'Lula',type:'camp',note:'Church Camp'},{name:'Ryleigh',type:'oot',note:'OOT'},{name:'Makayla',type:'oot',note:'OOT'}],
-      '2025-7-15':[{name:'Ryleigh',type:'oot',note:'OOT'}],
-      '2025-7-17':[{name:'Mar/Mads',type:'oot',note:'OOT'},{name:'Halle',type:'oot',note:'OOT'}],
-      '2025-7-18':[{name:'Ryleigh',type:'oot',note:'OOT'},{name:'Halle',type:'oot',note:'OOT'},{name:'Lula',type:'oot',note:'OOT'}],
-      '2025-7-19':[{name:'Ryleigh',type:'oot',note:'OOT'},{name:'Halle',type:'oot',note:'OOT'},{name:'Lula',type:'oot',note:'OOT'}],
-      // July 20–26
-      '2025-7-20':[{name:'Ryleigh',type:'oot',note:'OOT'},{name:'Halle',type:'oot',note:'OOT'},{name:'Lula',type:'oot',note:'OOT'}],
-      '2025-7-21':[{name:'Mar/Mads',type:'oot',note:'OOT'},{name:'Lula',type:'oot',note:'OOT'},{name:'Maddie',type:'camp',note:'LHS 10–12'}],
-      '2025-7-22':[{name:'Mar/Mads',type:'oot',note:'OOT'},{name:'Maddie',type:'camp',note:'LHS 10–12'}],
-      '2025-7-23':[{name:'makayla',type:'oot',note:'Out'},{name:'Halle',type:'oot',note:'OOT'},{name:'Maddie',type:'camp',note:'LHS 10–12'}],
-      '2025-7-24':[{name:'Halle',type:'oot',note:'OOT / makayla out'},{name:'Maddie',type:'camp',note:'LHS 10–12'}],
-      '2025-7-25':[{name:'Halle',type:'oot',note:'OOT'},{name:'makayla',type:'oot',note:'Out'},{name:'makayla',type:'oot',note:'Out'}],
-      '2025-7-26':[{name:'Halle',type:'oot',note:'OOT'},{name:'makayla',type:'oot',note:'Out'}],
-      // July 27–31
-      '2025-7-27':[{name:'Halle',type:'oot',note:'OOT'}],
-      '2025-7-29':[{name:'Brantlie',type:'camp',note:'FHS Cheer 4–6pm'}],
-      '2025-7-31':[{name:'Halle',type:'oot',note:'OOT'}],
-    }
-  },
-  'Fire':{
-    practices:{
-      '2025-5-26':['GYM CLOSED — Memorial Day'],
-      '2025-5-30':['Choreography: 10:00 AM–12:00 PM (All Black)'],
-      '2025-6-2': ['Choreography: 3:00–8:00 PM (All Black)'],
-      '2025-6-9': ['Choreography: 3:00–8:00 PM (All Black)'],
-      '2025-6-16':['Choreography: 3:00–8:00 PM (All Black)'],
-      '2025-6-23':['Choreography: 3:00–8:00 PM (All Black)'],
-      '2025-6-30':['NO TEAM PRACTICES — Summer Break'],
-      '2025-7-7': ['Practice: 4:30–6:00 PM','Tricking: 6:00–6:30 PM'],
-      '2025-7-14':['Practice: 4:30–6:00 PM','Tricking: 6:00–6:30 PM'],
-      '2025-7-21':['Practice: 4:30–6:00 PM','Tricking: 6:00–6:30 PM'],
-      '2025-7-24':['Parent Meeting: 6:00 PM'],
-      '2025-7-28':['Practice: 4:30–6:00 PM','Tricking: 6:00–6:30 PM'],
-    },
-    absences:{
-      // May 29-31
-      '2025-5-29':[{name:'Ellie',type:'oot',note:'Out June 6 (noted early)'},{name:'Berkley L.',type:'oot',note:'Basketball tournament'}],
-      // June 1-7
-      '2025-6-1': [{name:'Berkley L.',type:'oot',note:'Basketball tournament'}],
-      '2025-6-2': [{name:'Ellie',type:'oot',note:'Out — June 6 noted'},{name:'Berkley L.',type:'oot',note:'Basketball tournament'}],
-      '2025-6-3': [{name:'Bella',type:'oot',note:'Soccer 5:30–7:30'},{name:'Ashlynn',type:'oot',note:'Out'}],
-      '2025-6-4': [{name:'Bexly',type:'oot',note:'Out 10–11am'},{name:'Ashlynn',type:'oot',note:'Out'}],
-      '2025-6-5': [{name:'Ashlynn',type:'oot',note:'Out'}],
-      '2025-6-7': [{name:'Berkley L.',type:'oot',note:'Basketball tournament'}],
-      // June 8-14
-      '2025-6-9': [{name:'Maddie',type:'oot',note:'Softball game 6pm'},{name:'Breelyn',type:'camp',note:'Camp 9–12'},{name:'Bexly',type:'camp',note:'Camp 8–11am / Ashlynn out at 7pm'},{name:'Ashlynn',type:'oot',note:'Out at 7pm'}],
-      '2025-6-10':[{name:'Bexly',type:'camp',note:'Camp 8–11am'},{name:'Bella',type:'oot',note:'Soccer 5:30–7:30'},{name:'Breelyn',type:'camp',note:'Camp 9–12'},{name:'Ashlynn',type:'oot',note:'Out'}],
-      '2025-6-11':[{name:'Bexly',type:'camp',note:'Camp 8–11am'},{name:'Breelyn',type:'camp',note:'Camp 9–12'},{name:'Ashlynn',type:'oot',note:'Out'}],
-      '2025-6-12':[{name:'Isabella',type:'oot',note:'OOT'},{name:'Breelyn',type:'camp',note:'Camp 9–12'},{name:'Ashlynn',type:'oot',note:'Out'}],
-      '2025-6-13':[{name:'Isabella',type:'oot',note:'OOT'},{name:'Breelyn',type:'oot',note:'OOT'}],
-      '2025-6-14':[{name:'Isabella',type:'oot',note:'OOT'},{name:'Breelyn',type:'oot',note:'OOT'}],
-      // June 15-21
-      '2025-6-15':[{name:'Isabella',type:'oot',note:'OOT'},{name:'Breelyn',type:'oot',note:'OOT'}],
-      '2025-6-16':[{name:'Maddie',type:'oot',note:'Softball — leaves at 7:45'},{name:'Isabella',type:'oot',note:'OOT'}],
-      '2025-6-17':[{name:'Isabella',type:'oot',note:'OOT'},{name:'Bella',type:'oot',note:'Soccer 5:30–7:30'}],
-      '2025-6-18':[{name:'Isabella',type:'oot',note:'OOT'}],
-      '2025-6-19':[{name:'Isabella',type:'oot',note:'OOT'},{name:'Ashlynn',type:'oot',note:'Out'}],
-      '2025-6-20':[{name:'Ashlynn',type:'oot',note:'Out — wedding'}],
-      // June 22-28
-      '2025-6-23':[{name:'Maddie',type:'camp',note:'Camp — until 3, coming in late'}],
-      '2025-6-24':[{name:'Bella',type:'oot',note:'Soccer 5:30–7:30'}],
-      '2025-6-27':[{name:'Bella',type:'oot',note:'OOT'},{name:'Ellie',type:'oot',note:'OOT'}],
-      '2025-6-28':[{name:'Bella',type:'oot',note:'OOT'}],
-      // June 29
-      '2025-6-29':[{name:'Bella',type:'oot',note:'OOT'}],
-      // July 6-12
-      '2025-7-7': [{name:'Bella',type:'camp',note:'Camp 6–8pm'},{name:'Breelyn',type:'oot',note:'OOT'}],
-      '2025-7-8': [{name:'Bella',type:'camp',note:'Camp 6–8pm'},{name:'Breelyn',type:'oot',note:'OOT'}],
-      '2025-7-9': [{name:'Bella',type:'camp',note:'Camp 6–8pm'},{name:'Breelyn',type:'oot',note:'OOT'}],
-      '2025-7-10':[{name:'Breelyn',type:'oot',note:'OOT'}],
-      '2025-7-11':[{name:'Ashlynn',type:'oot',note:'Out'},{name:'Breelyn',type:'oot',note:'OOT'}],
-      '2025-7-12':[{name:'Breelyn',type:'oot',note:'OOT'}],
-      // July 13-19
-      '2025-7-13':[{name:'Ashlynn',type:'oot',note:'Out'},{name:'Breelyn',type:'oot',note:'OOT'}],
-      '2025-7-14':[{name:'Maddie',type:'oot',note:'Softball — leaving at 6'},{name:'Ashlynn',type:'oot',note:'Out'},{name:'Breelyn',type:'oot',note:'OOT'}],
-      '2025-7-15':[{name:'Ashlynn',type:'oot',note:'Out'},{name:'Breelyn',type:'oot',note:'OOT'}],
-      '2025-7-16':[{name:'Ashlynn',type:'oot',note:'Out'},{name:'Breelyn',type:'oot',note:'OOT'}],
-      '2025-7-17':[{name:'Ashlynn',type:'oot',note:'Out'},{name:'Breelyn',type:'oot',note:'OOT'}],
-      '2025-7-18':[{name:'Bella',type:'oot',note:'Soccer'},{name:'Ashlynn',type:'oot',note:'Out'},{name:'Breelyn',type:'oot',note:'OOT'}],
-      '2025-7-19':[{name:'Ashlynn',type:'oot',note:'Out'},{name:'Breelyn',type:'oot',note:'OOT'}],
-      // July 20-26
-      '2025-7-20':[{name:'Breelyn',type:'oot',note:'OOT'},{name:'Ashlynn',type:'oot',note:'Out'}],
-      '2025-7-22':[{name:'Ashlynn',type:'oot',note:'Out'}],
-      '2025-7-23':[{name:'Ashlynn',type:'oot',note:'Out'}],
-      '2025-7-24':[{name:'Isabella',type:'oot',note:'OOT'},{name:'Ashlynn',type:'oot',note:'Out'}],
-      '2025-7-25':[{name:'Ellie',type:'oot',note:'OOT'},{name:'Isabella',type:'oot',note:'OOT'},{name:'Ashlynn',type:'oot',note:'Out'},{name:'Berkley L.',type:'oot',note:'Basketball tournament'}],
-      '2025-7-26':[{name:'Ellie',type:'oot',note:'OOT'},{name:'Ashlynn',type:'oot',note:'Out'},{name:'Berkley L.',type:'oot',note:'Basketball tournament'}],
-      // July 27-31
-      '2025-7-27':[{name:'Ashlynn',type:'oot',note:'Out'},{name:'Ellie',type:'oot',note:'OOT'},{name:'Berkley L.',type:'oot',note:'Basketball tournament'}],
-      '2025-7-28':[{name:'Maddie',type:'oot',note:'Softball game — leaving at 6:00'},{name:'Ellie',type:'oot',note:'OOT'},{name:'Isabella',type:'oot',note:'OOT'}],
-      '2025-7-29':[{name:'Ashlynn',type:'oot',note:'Out'}],
-      '2025-7-31':[{name:'Ashlynn',type:'oot',note:'Out'},{name:'Breelyn',type:'oot',note:'Out'}],
-    }
-  },
-  'Recon':{
-    practices:{
-      '2025-5-26':['GYM CLOSED — Memorial Day'],
-      '2025-5-29':['Choreography: 5:00–8:00 PM (All Black)'],
-      '2025-6-5': ['Choreography: 4:00–8:30 PM (All Black)'],
-      '2025-6-11':['Choreography: 3:00–8:00 PM (All Black)'],
-      '2025-6-18':['Choreography: 3:00–8:00 PM (All Black)'],
-      '2025-6-22':['Choreography: 2:00–4:00 PM (All Black)'],
-      '2025-6-26':['Choreography: 3:00–8:00 PM (All Black)'],
-      '2025-6-30':['NO TEAM PRACTICES — Summer Break'],
-      '2025-7-9': ['Practice: 4:30–6:00 PM','Tricking: 6:00–6:30 PM'],
-      '2025-7-16':['Practice: 4:30–6:00 PM','Tricking: 6:00–6:30 PM'],
-      '2025-7-23':['Practice: 4:30–6:00 PM','Tricking: 6:00–6:30 PM','Parent Meeting: 6:00 PM'],
-      '2025-7-30':['Tricking: 4:30–5:30 PM'],
-    },
-    absences:{
-      // May 30
-      '2025-5-30':[{name:'Berkley L.',type:'oot',note:'Basketball tournament'}],
-      // June 1-7
-      '2025-6-1': [{name:'Berkley L.',type:'oot',note:'Basketball tournament'}],
-      '2025-6-7': [{name:'Berkley L.',type:'oot',note:'Basketball tournament'}],
-      // June 8-14
-      '2025-6-11':[{name:'Halle',type:'oot',note:'Out at 7'}],
-      '2025-6-12':[{name:'Halle',type:'oot',note:'OOT'}],
-      '2025-6-13':[{name:'Halle',type:'oot',note:'OOT'}],
-      // June 15-21
-      '2025-6-15':[{name:'Halle',type:'oot',note:'OOT'}],
-      '2025-6-19':[{name:'Nixon',type:'oot',note:'OOT'},{name:'Kaylee',type:'oot',note:'Out of town'}],
-      '2025-6-20':[{name:'Nixon',type:'oot',note:'OOT'},{name:'Halle',type:'oot',note:'Basketball tournament TBD'}],
-      '2025-6-21':[{name:'Kaylee',type:'oot',note:'Out of town'}],
-      // June 22-28
-      '2025-6-22':[{name:'Nixon',type:'oot',note:'OOT'},{name:'Halle',type:'oot',note:'Basketball tourney'}],
-      '2025-6-23':[{name:'Nixon',type:'oot',note:'OOT'}],
-      '2025-6-27':[{name:'Jayla',type:'oot',note:'OOT'}],
-      '2025-6-28':[{name:'Jayla',type:'oot',note:'OOT'}],
-      // June 29
-      '2025-6-29':[{name:'Jayla',type:'oot',note:'OOT'}],
-      // July 1-5 (summer break period)
-      '2025-6-29':[{name:'Nixon',type:'oot',note:'OOT'}],
-      '2025-7-2': [{name:'Kaylee',type:'oot',note:'Vacation'}],
-      '2025-7-3': [{name:'Kaylee',type:'oot',note:'Vacation'}],
-      // July 6-12
-      '2025-7-6': [{name:'Kaylee',type:'oot',note:'Vacation'}],
-      '2025-7-7': [{name:'Kaylee',type:'oot',note:'Vacation'}],
-      '2025-7-8': [{name:'Kaylee',type:'oot',note:'Vacation'}],
-      '2025-7-9': [{name:'Macayla J.',type:'oot',note:'Out of town'}],
-      // July 13-19
-      '2025-7-16':[{name:'Mads/Mae',type:'oot',note:'OOT'},{name:'Halle',type:'oot',note:'OOT'}],
-      '2025-7-17':[{name:'Mads/Mae',type:'oot',note:'OOT'},{name:'Halle',type:'oot',note:'OOT'}],
-      '2025-7-18':[{name:'Halle',type:'oot',note:'OOT'}],
-      // July 20-26
-      '2025-7-20':[{name:'Halle',type:'oot',note:'OOT'}],
-      '2025-7-24':[{name:'Aria',type:'oot',note:'Vacation'},{name:'Finley',type:'oot',note:'Vacation'},{name:'Berkley L.',type:'oot',note:'Basketball tournament'}],
-      '2025-7-25':[{name:'Aria',type:'oot',note:'Vacation'},{name:'Finley',type:'oot',note:'Vacation'},{name:'Berkley L.',type:'oot',note:'Basketball tournament'}],
-      // July 27-31
-      '2025-7-27':[{name:'Finley',type:'oot',note:'Vacation'},{name:'Berkley L.',type:'oot',note:'Basketball tournament'}],
-      '2025-7-28':[{name:'Finley',type:'oot',note:'Vacation'}],
-      '2025-7-29':[{name:'Finley',type:'oot',note:'Vacation'}],
-      '2025-7-30':[{name:'Finley',type:'oot',note:'Vacation'},{name:'Aria',type:'oot',note:'Vacation'},{name:'Halle',type:'oot',note:'OOT'}],
-      '2025-7-31':[{name:'Finley',type:'oot',note:'Vacation'},{name:'Berkley L.',type:'oot',note:'OOT'},{name:'Halle',type:'oot',note:'OOT'}],
-    }
-  },
-  '806 Crew':{
-    practices:{
-      '2025-5-26':['GYM CLOSED — Memorial Day'],
-      '2025-5-28':['Choreography: 5:00–8:00 PM (All Black)'],
-      '2025-6-4': ['Choreography: 3:00–8:00 PM (All Black)'],
-      '2025-6-11':['Choreography: 3:00–8:00 PM (All Black)'],
-      '2025-6-18':['Choreography: 3:00–8:00 PM (All Black)'],
-      '2025-6-19':['Choreography: 10:00 AM–12:00 PM (All Black)'],
-      '2025-6-25':['Choreography: 3:00–8:00 PM (All Black)'],
-      '2025-6-30':['NO TEAM PRACTICES — Summer Break'],
-      '2025-7-9': ['Practice: 4:30–6:00 PM','Tricking: 6:00–6:30 PM'],
-      '2025-7-16':['Practice: 4:30–6:00 PM','Tricking: 6:00–6:30 PM'],
-      '2025-7-23':['Practice: 4:30–6:00 PM','Tricking: 6:00–6:30 PM'],
-      '2025-7-24':['Parent Meeting: 6:00 PM'],
-      '2025-7-30':['Practice: 4:30–6:00 PM','Tricking: 6:00–6:30 PM'],
-    },
-    absences:{
-      // May 28-31
-      '2025-5-28':[{name:'Brantlie',type:'camp',note:'FHS Cheer 4-5:30'},{name:'Ryleigh',type:'camp',note:'Church camp'},{name:'Landri',type:'camp',note:'Church camp'}],
-      '2025-5-29':[{name:'Brantlie',type:'camp',note:'FHS Cheer Camp TBA'},{name:'Ryleigh',type:'camp',note:'Church camp'},{name:'Landri',type:'camp',note:'Church camp'}],
-      '2025-5-30':[{name:'Ansley',type:'oot',note:'OOT'},{name:'Brantlie',type:'camp',note:'FHS Cheer Camp TBA'}],
-      '2025-5-31':[{name:'Ansley',type:'oot',note:'OOT'},{name:'Brantlie',type:'camp',note:'FHS Cheer Camp TBA'}],
-      // June 1-7
-      '2025-6-1': [{name:'Ansley',type:'oot',note:'OOT'}],
-      '2025-6-2': [{name:'Ryleigh',type:'camp',note:'HS cheer 1-4'}],
-      '2025-6-3': [{name:'Ryleigh',type:'camp',note:'HS cheer 1-4'}],
-      '2025-6-4': [{name:'Narigha',type:'oot',note:'MHS basketball 9:30am-12pm'},{name:'Mar/Tatum',type:'camp',note:'Cheer camp until 4'}],
-      // June 8-14
-      '2025-6-9': [{name:'Narigha',type:'camp',note:'MHS bball camp in Canyon'},{name:'Brantlie',type:'camp',note:'FHS Cheer 8:30am-12pm'},{name:'Ryleigh',type:'oot',note:'OOT cheer camp'}],
-      '2025-6-10':[{name:'Narigha',type:'camp',note:'MHS bball camp in Canyon'},{name:'Brantlie',type:'camp',note:'FHS Cheer 8:30am-12pm'},{name:'Tatum',type:'oot',note:'Mexico'},{name:'Ryleigh',type:'oot',note:'OOT cheer camp'}],
-      '2025-6-11':[{name:'Narigha',type:'camp',note:'MHS Bball camp in Canyon'},{name:'Ryleigh',type:'oot',note:'OOT cheer camp'},{name:'Brantlie',type:'camp',note:'FHS cheer 8:30-12'},{name:'Tatum',type:'oot',note:'Mexico'},{name:'TC',type:'oot',note:'Mexico'}],
-      '2025-6-12':[{name:'Brantlie',type:'camp',note:'FHS cheer 8:30-12'},{name:'Tatum',type:'oot',note:'Mexico'},{name:'Ryleigh',type:'oot',note:'OOT cheer camp'}],
-      '2025-6-13':[{name:'Halle',type:'oot',note:'OOT'},{name:'Tatum',type:'oot',note:'Mexico'},{name:'Ryleigh',type:'oot',note:'OOT cheer camp'}],
-      '2025-6-14':[{name:'Halle',type:'oot',note:'OOT'},{name:'Aviana',type:'oot',note:'Out'},{name:'Tatum',type:'oot',note:'Mexico'},{name:'Ryleigh',type:'oot',note:'OOT cheer camp'}],
-      '2025-6-8': [{name:'Marlee',type:'camp',note:'Church camp'},{name:'Ryleigh',type:'oot',note:'Cheer pic TBA'}],
-      // June 15-21
-      '2025-6-15':[{name:'Halle',type:'oot',note:'OOT'},{name:'Tatum',type:'oot',note:'Mexico'},{name:'Ryleigh',type:'oot',note:'OOT cheer camp'},{name:'Narigha',type:'oot',note:'MHS workout 9:30-10:30am'}],
-      '2025-6-16':[{name:'Halle',type:'oot',note:'OOT'},{name:'Tatum',type:'oot',note:'Mexico'},{name:'Narigha',type:'oot',note:'MHS workout 9:30-10:30am'}],
-      '2025-6-17':[{name:'Narigha',type:'oot',note:'MHS workout 9:30-10:30am'}],
-      '2025-6-18':[{name:'Narigha',type:'oot',note:'MHS bball workout 9:30-10:30am'}],
-      '2025-6-19':[{name:'Narigha',type:'oot',note:'MHS bball workout 9:30-10:30am'},{name:'Ansley',type:'oot',note:'OOT'},{name:'Tatum',type:'oot',note:'Concert in Houston'}],
-      '2025-6-20':[{name:'Ansley',type:'oot',note:'OOT'},{name:'Tatum',type:'oot',note:'Concert in Houston'}],
-      // June 22-28
-      '2025-6-22':[{name:'Ansley',type:'oot',note:'OOT'}],
-      '2025-6-23':[{name:'Narigha',type:'oot',note:'MHS bball 9:30am-12pm'}],
-      '2025-6-24':[{name:'Narigha',type:'oot',note:'MHS bball 9:30am-12pm'}],
-      '2025-6-25':[{name:'Narigha',type:'oot',note:'MHS bball 9:30am-12pm'},{name:'Ryleigh',type:'oot',note:'Out in evening'}],
-      '2025-6-26':[{name:'Narigha',type:'oot',note:'MHS bball 9:30am-12pm'}],
-      '2025-6-27':[{name:'Jayla',type:'oot',note:'OOT'},{name:'Landri',type:'oot',note:'OOT'}],
-      '2025-6-28':[{name:'Jayla',type:'oot',note:'OOT'},{name:'Landri',type:'oot',note:'OOT'}],
-      // July 6-12
-      '2025-7-6': [{name:'Jayla',type:'oot',note:'OOT'},{name:'Landri',type:'oot',note:'OOT'}],
-      '2025-7-7': [{name:'Narigha',type:'oot',note:'Vacation'},{name:'Ansley',type:'oot',note:'OOT'}],
-      '2025-7-8': [{name:'Narigha',type:'oot',note:'MHS bball 9:30am-12pm'},{name:'Ansley',type:'oot',note:'OOT'}],
-      '2025-7-9': [{name:'Ryleigh',type:'oot',note:'OOT'},{name:'Ansley',type:'oot',note:'OOT'},{name:'Narigha',type:'oot',note:'MHS bball 9:30am-12pm'},{name:'Brantlie',type:'camp',note:'FHS Cheer 6-8pm'}],
-      '2025-7-10':[{name:'Narigha',type:'oot',note:'MHS bball 9:30am-12pm'},{name:'Ansley',type:'oot',note:'OOT'},{name:'Ryleigh',type:'oot',note:'OOT'}],
-      '2025-7-11':[{name:'Ansley',type:'oot',note:'OOT'},{name:'Ryleigh',type:'oot',note:'OOT'}],
-      '2025-7-12':[{name:'Ansley',type:'oot',note:'OOT'},{name:'Ryleigh',type:'oot',note:'OOT'}],
-      // July 13-19
-      '2025-7-13':[{name:'Ansley',type:'oot',note:'OOT'},{name:'Narigha',type:'oot',note:'MHS bball 9:30am-12pm'},{name:'Ryleigh',type:'oot',note:'OOT'}],
-      '2025-7-14':[{name:'Narigha',type:'oot',note:'MHS bball 9:30am-12pm'},{name:'Tatum',type:'camp',note:'VBS & VB camp'},{name:'Ryleigh',type:'oot',note:'OOT'}],
-      '2025-7-15':[{name:'Aviana',type:'oot',note:'OOT'},{name:'Narigha',type:'oot',note:'MHS bball 9:30am-12pm'},{name:'Tatum',type:'camp',note:'VBS & VB camp'},{name:'Ryleigh',type:'oot',note:'OOT'}],
-      '2025-7-16':[{name:'Aviana',type:'oot',note:'OOT'},{name:'Narigha',type:'oot',note:'MHS bball 9:30am-12pm'},{name:'Ryleigh',type:'oot',note:'OOT'},{name:'TC',type:'oot',note:'Out family'}],
-      '2025-7-17':[{name:'Aviana',type:'oot',note:'OOT'},{name:'Narigha',type:'oot',note:'MHS bball 9:30am-12pm'},{name:'Ryleigh',type:'oot',note:'OOT'}],
-      '2025-7-18':[{name:'Presley',type:'oot',note:'Leaving for cruise'},{name:'Ryleigh',type:'oot',note:'OOT'},{name:'Halle',type:'oot',note:'OOT'}],
-      '2025-7-19':[{name:'Aviana',type:'oot',note:'OOT'},{name:'Ryleigh',type:'oot',note:'OOT'},{name:'Halle',type:'oot',note:'OOT'}],
-      // July 20-26
-      '2025-7-20':[{name:'Ryleigh',type:'oot',note:'OOT'},{name:'Aviana',type:'oot',note:'OOT'},{name:'Halle',type:'oot',note:'OOT'}],
-      '2025-7-21':[{name:'Narigha',type:'oot',note:'MHS bball 9:30am-12pm'}],
-      '2025-7-22':[{name:'Narigha',type:'oot',note:'MHS bball 9:30am-12pm'}],
-      '2025-7-23':[{name:'Narigha',type:'oot',note:'MHS bball 9:30am-12pm'},{name:'Brantlie',type:'camp',note:'FHS Cheer 4-6'}],
-      '2025-7-24':[{name:'Narigha',type:'oot',note:'MHS bball 9:30am-12pm'},{name:'Finley',type:'oot',note:'Vacation'}],
-      '2025-7-25':[{name:'Narigha',type:'oot',note:'Vacation'},{name:'Finley',type:'oot',note:'Vacation'}],
-      '2025-7-26':[{name:'Narigha',type:'oot',note:'Vacation'},{name:'Finley',type:'oot',note:'Vacation'}],
-      // July 27-31
-      '2025-7-27':[{name:'Narigha',type:'oot',note:'Vacation'},{name:'Finley',type:'oot',note:'Vacation'}],
-      '2025-7-28':[{name:'Narigha',type:'oot',note:'Vacation'},{name:'Finley',type:'oot',note:'Vacation'}],
-      '2025-7-29':[{name:'Narigha',type:'oot',note:'MHS bball 9:30am-12pm'},{name:'Finley',type:'oot',note:'Vacation'},{name:'Presley',type:'oot',note:'Back from cruise'},{name:'Brantlie',type:'camp',note:'FHS Cheer 4-6'}],
-      '2025-7-30':[{name:'Narigha',type:'oot',note:'MHS bball 9:30am-12pm'},{name:'Ryleigh',type:'oot',note:'Out'},{name:'Finley',type:'oot',note:'Vacation'}],
-      '2025-7-31':[{name:'Narigha',type:'oot',note:'MHS bball 9:30am-12pm'},{name:'Finley',type:'oot',note:'Vacation'}],
-    }
-  },
-  'Diamonds':{
-    practices:{
-      '2025-5-26':['GYM CLOSED — Memorial Day'],
-      '2025-5-27':['Choreography: 5:00–8:00 PM (All Black)'],
-      '2025-6-3': ['Choreography: 3:00–8:00 PM (All Black)'],
-      '2025-6-14':['Choreography: 9:00 AM–1:00 PM (All Black)'],
-      '2025-6-17':['Choreography: 3:00–8:00 PM (All Black)'],
-      '2025-6-24':['Choreography: 3:00–8:00 PM (All Black)'],
-      '2025-6-30':['NO TEAM PRACTICES — Summer Break'],
-      '2025-7-8': ['Practice: 4:30–6:00 PM','Tricking: 6:00–6:30 PM'],
-      '2025-7-15':['Practice: 4:30–6:00 PM','Tricking: 6:00–6:30 PM'],
-      '2025-7-22':['Practice: 4:30–6:00 PM','Tricking: 6:00–6:30 PM'],
-      '2025-7-24':['Parent Meeting: 6:00 PM'],
-      '2025-7-29':['Practice: 4:30–6:00 PM','Tricking: 6:00–6:30 PM'],
-    },
-    absences:{
-      '2025-5-25':[{name:'Cambree',type:'oot',note:'OOT'},{name:'Hope',type:'oot',note:'OOT'}],
-      '2025-5-26':[{name:'Hope',type:'oot',note:'OOT'}],
-      '2025-5-27':[{name:'Mar',type:'oot',note:'Out 9-11'},{name:'Ava',type:'oot',note:'Work 12-5'},{name:'Emmie',type:'oot',note:'Out'},{name:'Brantlie',type:'camp',note:'FHS Cheer Camp TBA'},{name:'Ryleigh',type:'camp',note:'Church camp'},{name:'Hope',type:'oot',note:'OOT'},{name:'TC',type:'camp',note:'Church camp'}],
-      '2025-5-28':[{name:'Mar',type:'oot',note:'Out 9-11'},{name:'Ava',type:'oot',note:'Work 12-7'},{name:'Emmie',type:'oot',note:'VB practice 5-7'},{name:'Brantlie',type:'camp',note:'FHS Cheer 4-5:30'},{name:'Hope',type:'oot',note:'OOT'},{name:'TC',type:'camp',note:'Church camp'}],
-      '2025-5-29':[{name:'Ava',type:'oot',note:'Work 12-5'},{name:'Brantlie',type:'camp',note:'FHS Cheer Camp TBA'},{name:'Ryleigh',type:'camp',note:'Church camp'},{name:'Hope',type:'oot',note:'OOT'},{name:'TC',type:'camp',note:'Church camp'}],
-      '2025-5-30':[{name:'Emmie',type:'oot',note:'Out'},{name:'Brantlie',type:'camp',note:'FHS Cheer Camp TBA'},{name:'Ryleigh',type:'camp',note:'Church camp'},{name:'Hope',type:'oot',note:'OOT'}],
-      '2025-5-31':[{name:'Emmie',type:'oot',note:'Out/Cambree'},{name:'Ryleigh',type:'camp',note:'Church camp'},{name:'Hope',type:'oot',note:'OOT'},{name:'Kaelyn',type:'oot',note:'Out NYC'}],
-      '2025-6-1': [{name:'Kaelyn',type:'oot',note:'NYC'},{name:'Ava',type:'oot',note:'Work 6-11pm'},{name:'Emmie',type:'oot',note:'Out'},{name:'Ryleigh',type:'camp',note:'Church camp'},{name:'Naomi',type:'oot',note:'OOT NY/DC'}],
-      '2025-6-2': [{name:'Kaelyn',type:'oot',note:'NYC'},{name:'Mar/Tatum',type:'camp',note:'Cheer camp'},{name:'Emmie',type:'oot',note:'VB practice 5-7'},{name:'Ryleigh',type:'camp',note:'HS cheer 1-4'},{name:'Naomi',type:'oot',note:'OOT NY/DC'},{name:'Cambree',type:'oot',note:'OOT'}],
-      '2025-6-3': [{name:'Mar/Tatum',type:'camp',note:'Cheer camp'},{name:'Sophia',type:'camp',note:'Cheer 8-4'},{name:'Kaelyn',type:'oot',note:'NYC'},{name:'Ryleigh',type:'camp',note:'HS cheer 1-4'},{name:'Naomi',type:'oot',note:'OOT NY/DC'}],
-      '2025-6-4': [{name:'Sophia',type:'camp',note:'Cheer 11-6'},{name:'Mar/Tatum',type:'camp',note:'Cheer camp until 4:30'},{name:'Naomi',type:'oot',note:'OOT NY/DC'},{name:'Ryleigh',type:'camp',note:'HS cheer 1-4'},{name:'Cambree',type:'oot',note:'OOT'}],
-      '2025-6-5': [{name:'Hope',type:'camp',note:'Cheer camp 8:30-12'},{name:'Kaelyn',type:'oot',note:'NYC'},{name:'Naomi',type:'oot',note:'OOT NY/DC'},{name:'Mar',type:'oot',note:'Out early eve'},{name:'Harper',type:'oot',note:'OOT baseball'}],
-      '2025-6-6': [{name:'Hope',type:'camp',note:'Cheer camp 8:30-12'},{name:'Marlee',type:'oot',note:'Out'},{name:'Kaelyn',type:'oot',note:'NYC'},{name:'Naomi',type:'oot',note:'OOT NY/DC'}],
-      '2025-6-7': [{name:'Marlee',type:'oot',note:'Out'},{name:'Naomi',type:'oot',note:'OOT NY/DC'},{name:'Harper',type:'oot',note:'OOT baseball'}],
-      '2025-6-8': [{name:'Marlee',type:'oot',note:'Out'},{name:'Ryleigh',type:'oot',note:'Cheer pics TBA'},{name:'Harper',type:'oot',note:'OOT baseball'}],
-      '2025-6-9': [{name:'Marlee',type:'oot',note:'Out'},{name:'Brantlie',type:'camp',note:'FHS Cheer 8:30am-12pm'},{name:'Makayla',type:'oot',note:'Out'},{name:'Ryleigh',type:'oot',note:'OOT cheer camp'}],
-      '2025-6-10':[{name:'Brantlie',type:'camp',note:'FHS Cheer 8:30am-12pm'},{name:'Makayla',type:'oot',note:'Out'},{name:'Emmie',type:'oot',note:'JH volleyball'},{name:'Ryleigh',type:'oot',note:'OOT cheer camp'},{name:'Mar',type:'oot',note:'Out'},{name:'Olivia',type:'oot',note:'Out'}],
-      '2025-6-11':[{name:'Hope',type:'camp',note:'Cheer camp 10am-1pm'},{name:'Olivia',type:'oot',note:'Out'},{name:'Brantlie',type:'camp',note:'FHS Cheer 8:30am-12pm'},{name:'Makayla',type:'oot',note:'Out'},{name:'TC',type:'oot',note:'Mexico'},{name:'Emmie',type:'oot',note:'JH volleyball'},{name:'Ryleigh',type:'oot',note:'OOT cheer camp'}],
-      '2025-6-12':[{name:'Hope',type:'camp',note:'Cheer camp 10am-1pm'},{name:'TC',type:'oot',note:'Mexico'},{name:'Makayla',type:'oot',note:'Out'},{name:'Emmie',type:'oot',note:'JH volleyball'},{name:'Ryleigh',type:'oot',note:'OOT cheer camp'}],
-      '2025-6-13':[{name:'Ryleigh',type:'oot',note:'OOT'},{name:'Makayla',type:'oot',note:'Out'},{name:'Emmie',type:'oot',note:'JH volleyball tourney'},{name:'TC',type:'oot',note:'Mexico'}],
-      '2025-6-14':[{name:'Ryleigh',type:'oot',note:'OOT'},{name:'TC',type:'oot',note:'Mexico'},{name:'Harper',type:'oot',note:'OOT baseball'},{name:'Ava',type:'oot',note:'Work 1-6'}],
-      '2025-6-15':[{name:'Ava',type:'oot',note:'Work 5-10'},{name:'Ryleigh',type:'oot',note:'OOT'},{name:'TC',type:'oot',note:'Mexico'},{name:'Harper',type:'oot',note:'OOT baseball'}],
-      '2025-6-16':[{name:'TC',type:'oot',note:'Mexico'},{name:'Hope',type:'camp',note:'Cheer camp TBD'},{name:'Harper',type:'oot',note:'Driving test 10:30'}],
-      '2025-6-17':[{name:'Hope',type:'camp',note:'Cheer camp 8-4'},{name:'Ava',type:'oot',note:'Work 6-10pm'}],
-      '2025-6-18':[{name:'Hope',type:'camp',note:'Cheer camp TBD'},{name:'Ryleigh',type:'oot',note:'Out in evening'},{name:'Olivia',type:'oot',note:'Out'}],
-      '2025-6-19':[{name:'Olivia',type:'oot',note:'Out wedding'},{name:'Ava',type:'oot',note:'Work 7-11:30pm'},{name:'Hope',type:'oot',note:'OOT'},{name:'TC',type:'oot',note:'OOT concert'}],
-      '2025-6-20':[{name:'Hope',type:'oot',note:'OOT'},{name:'TC',type:'oot',note:'OOT concert'}],
-      '2025-6-22':[{name:'Ava',type:'oot',note:'Work 6-11:30'},{name:'Hope',type:'oot',note:'OOT'}],
-      '2025-6-23':[{name:'Ava',type:'oot',note:'Work 8-10'}],
-      '2025-6-24':[{name:'Olivia',type:'oot',note:'Out at 6'},{name:'Ava',type:'oot',note:'Work 6-10pm'}],
-      '2025-6-27':[{name:'Ava',type:'oot',note:'Work 5-10'},{name:'Harper',type:'oot',note:'Out 12-9'}],
-      '2025-6-29':[{name:'Ava',type:'oot',note:'Work 12-5'}],
-      '2025-7-7': [{name:'Emmie',type:'oot',note:'Out'}],
-      '2025-7-8': [{name:'Emmie',type:'oot',note:'Out'},{name:'Ryleigh',type:'oot',note:'OOT'},{name:'Makayla',type:'oot',note:'OOT'}],
-      '2025-7-9': [{name:'Brantlie',type:'camp',note:'FHS Cheer 6-8pm'},{name:'Ryleigh',type:'oot',note:'OOT'},{name:'Makayla',type:'oot',note:'OOT'},{name:'Ava',type:'camp',note:'Church camp'},{name:'Harper',type:'camp',note:'Church camp'}],
-      '2025-7-10':[{name:'Ava',type:'camp',note:'Church camp'},{name:'Ryleigh',type:'oot',note:'OOT'},{name:'Makayla',type:'oot',note:'OOT'},{name:'Harper',type:'camp',note:'Church camp'}],
-      '2025-7-11':[{name:'Olivia',type:'oot',note:'Out'},{name:'Ava',type:'camp',note:'Church camp'},{name:'Ryleigh',type:'oot',note:'OOT'},{name:'Makayla',type:'oot',note:'OOT'},{name:'Harper',type:'camp',note:'Church camp'}],
-      '2025-7-12':[{name:'Olivia',type:'oot',note:'Out'},{name:'Ryleigh',type:'oot',note:'OOT'},{name:'Makayla',type:'oot',note:'OOT'},{name:'Harper',type:'camp',note:'Church camp'}],
-      '2025-7-13':[{name:'Ava',type:'camp',note:'Church camp'},{name:'Emmie',type:'oot',note:'Cruise'},{name:'Makayla',type:'oot',note:'OOT'},{name:'Ryleigh',type:'oot',note:'OOT'},{name:'Olivia',type:'oot',note:'Out'},{name:'Harper',type:'camp',note:'Church camp'}],
-      '2025-7-14':[{name:'Naomi',type:'camp',note:'Camp 8:30-12pm'},{name:'Emmie',type:'oot',note:'Cruise'},{name:'Makayla',type:'oot',note:'OOT'},{name:'Ryleigh',type:'oot',note:'OOT'},{name:'Olivia',type:'oot',note:'Out'},{name:'Harper',type:'camp',note:'Church camp'},{name:'Ava',type:'camp',note:'Church camp'}],
-      '2025-7-15':[{name:'Naomi',type:'camp',note:'Camp 8:30-12pm'},{name:'Emmie',type:'oot',note:'Cruise'},{name:'TC',type:'oot',note:'Fam here'},{name:'Cambree',type:'oot',note:'OOT'},{name:'Ryleigh',type:'oot',note:'OOT'},{name:'Olivia',type:'oot',note:'Out'},{name:'Hope',type:'oot',note:'OOT'}],
-      '2025-7-16':[{name:'Naomi',type:'camp',note:'Camp 8:30-12pm'},{name:'Cambree',type:'oot',note:'Out'},{name:'Emmie',type:'oot',note:'Cruise'},{name:'Olivia',type:'oot',note:'Out'},{name:'Ryleigh',type:'oot',note:'OOT'}],
-      '2025-7-17':[{name:'Naomi',type:'camp',note:'Camp 8:30-12pm'},{name:'Emmie',type:'oot',note:'Cruise'},{name:'Olivia',type:'oot',note:'Out'},{name:'Cambree',type:'oot',note:'Out'},{name:'Ryleigh',type:'oot',note:'OOT'}],
-      '2025-7-18':[{name:'Emmie',type:'oot',note:'Cruise'},{name:'Olivia',type:'oot',note:'Out'},{name:'Ava',type:'oot',note:'Out'},{name:'Ryleigh',type:'oot',note:'OOT'}],
-      '2025-7-19':[{name:'Naomi',type:'camp',note:'Camp 8am-12pm'},{name:'Emmie',type:'oot',note:'Cruise'},{name:'Olivia',type:'oot',note:'Out'},{name:'Ava',type:'oot',note:'Out'},{name:'Ryleigh',type:'oot',note:'OOT'}],
-      '2025-7-20':[{name:'Ava',type:'oot',note:'Out'},{name:'Olivia',type:'oot',note:'Out'},{name:'Ryleigh',type:'oot',note:'OOT'}],
-      '2025-7-21':[{name:'Naomi',type:'camp',note:'Pom 8am-12pm'},{name:'Emmie',type:'camp',note:'Cheer camp'}],
-      '2025-7-22':[{name:'Naomi',type:'camp',note:'Pom 8am-12pm'},{name:'Hope',type:'doc',note:'Dentist'},{name:'Emmie',type:'camp',note:'Cheer camp 8:30-4:30'},{name:'Sophia',type:'oot',note:'Out'}],
-      '2025-7-23':[{name:'Naomi',type:'camp',note:'Pom 8am-12pm'},{name:'Olivia',type:'oot',note:'OOT'},{name:'makayla',type:'oot',note:'Out'}],
-      '2025-7-24':[{name:'Naomi',type:'camp',note:'Pom 8am-12pm'},{name:'Emmie',type:'oot',note:'Out'},{name:'Olivia',type:'oot',note:'OOT'},{name:'makayla',type:'oot',note:'Out'},{name:'Harper',type:'oot',note:'OOT'}],
-      '2025-7-25':[{name:'Naomi',type:'camp',note:'Pom 8am-12pm'},{name:'Emmie',type:'oot',note:'Out'},{name:'Olivia',type:'oot',note:'OOT'},{name:'Ava',type:'oot',note:'Out'},{name:'makayla',type:'oot',note:'Out'},{name:'Harper',type:'oot',note:'OOT'}],
-      '2025-7-26':[{name:'Emmie',type:'oot',note:'Out'},{name:'Ava',type:'oot',note:'Out'},{name:'Olivia',type:'oot',note:'OOT'},{name:'makayla',type:'oot',note:'Out'},{name:'Harper',type:'oot',note:'OOT'}],
-      '2025-7-27':[{name:'Emmie',type:'oot',note:'Out'},{name:'Olivia/Ava',type:'oot',note:'Out'}],
-      '2025-7-28':[{name:'Olivia',type:'oot',note:'Out'},{name:'Naomi',type:'oot',note:'OOT Camp'}],
-      '2025-7-29':[{name:'Naomi',type:'oot',note:'OOT Camp'},{name:'Brantlie',type:'camp',note:'FHS Cheer 4-6'},{name:'Emmie',type:'camp',note:'Cheer camp 8:30-4:30'},{name:'Harper',type:'oot',note:'OOT'}],
-      '2025-7-30':[{name:'Naomi',type:'oot',note:'OOT Camp'},{name:'Ava',type:'oot',note:'Out'},{name:'Emmie',type:'oot',note:'School event 5:30'},{name:'Ryleigh',type:'oot',note:'Out'},{name:'Harper',type:'oot',note:'OOT'}],
-      '2025-7-31':[{name:'Naomi',type:'oot',note:'OOT Camp'},{name:'Ryleigh',type:'oot',note:'Out'},{name:'Harper',type:'oot',note:'OOT'}],
-    }
-  },
-};
 
 const _today=new Date();
-let curWeek=0, absMonth=_today.getMonth(), absYear=_today.getFullYear(), absTeam='All';
-let selType='tots', editClsId=null, editStId=null, pendingConfirm=null;
+let curWeek=0, absMonth=_today.getMonth(), absYear=_today.getFullYear(), absTeam='all';
+let absSelectedDate=null;
+let selType='tots', selRecur='weekly', editClsId=null, editStId=null, editCompId=null, pendingConfirm=null;
+let overrideDateStr=null, overrideEvId=null;
 
 function dk(y,m,d){return y+'-'+(m+1)+'-'+d;}
-function typeColor(t){const m={tots:'var(--green)',combo:'var(--blue)',tnt:'var(--amber)',cheer:'var(--red)',camp:'var(--purple)',custom:'var(--teal)',office:'#555'};return m[t]||'#888';}
+function typeColor(t){const m={tots:'var(--green)',combo:'var(--blue)',tnt:'var(--amber)',cheer:'var(--red)',camp:'var(--purple)',custom:'var(--teal)',funfri:'var(--purple)',bday:'var(--teal)',office:'#555'};return m[t]||'#888';}
 function sNames(ids,short=false){
   if(!ids||!ids.length) return 'Unassigned';
   const ns=ids.map(id=>{const s=staffList.find(x=>x.id===id);return s?s.name.split(' ')[0]:'?';});
@@ -1254,7 +861,7 @@ function init(){
   buildTeamNav();buildTeamFilters();buildSettingsSheets();
   renderDashboard();renderSchedule();renderStaff();renderRequests();renderAbsences();renderCompetitions();
   renderNotifications();renderRoles();renderDates();renderSettingsRoles();
-  document.getElementById('dash-wlbl').textContent='Week of '+WEEKS[0];
+  const _iNow=new Date();document.getElementById('dash-wlbl').textContent='Week of '+['January','February','March','April','May','June','July','August','September','October','November','December'][_iNow.getMonth()]+' '+_iNow.getDate()+', '+_iNow.getFullYear();
   updateAbsMlbl();updateBadge();populateRoleDrop();buildTeamPicks([]);
   initEmailScheduler();
   checkPortalMode();
@@ -1328,6 +935,7 @@ function getState(){
   return {
     staffList,
     classes,
+    classOverrides,
     requests,
     swaps,
     roles,
@@ -1346,6 +954,7 @@ function applyState(s){
   if(!s) return;
   if(s.staffList)     staffList = s.staffList;
   if(s.classes)       classes = s.classes;
+  if(s.classOverrides) classOverrides = s.classOverrides;
   if(s.requests)      requests = s.requests;
   if(s.swaps)         swaps = s.swaps;
   if(s.roles)         roles = s.roles;
@@ -1479,7 +1088,7 @@ function buildTeamNav(){
   TEAMS.forEach(t=>{
     const d=document.createElement('div');d.className='tni';
     d.innerHTML=`<div class="tdot" style="background:${t.color}"></div>${t.name}`;
-    d.onclick=()=>{nav('absences',null);setAbsTeam(t.name);};
+    d.onclick=()=>{absTeam=t.name;nav('absences',null);document.querySelectorAll('.tf').forEach(x=>x.classList.remove('active'));renderAbsences();};
     el.appendChild(d);
   });
 }
@@ -1505,17 +1114,15 @@ function renderDashboard(){
       <div class="ri-acts"><button class="bap" onclick="actReq(${r.id},'approved')">✓</button><button class="bdn" onclick="actReq(${r.id},'denied')">✕</button></div>
     </div>`).join(''):'<div class="empty">✅ No pending requests</div>';
   const tod=classes.filter(c=>c.day===new Date().getDay());
-  document.getElementById('dash-today').innerHTML=tod.length?tod.map(c=>`
-    <div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px 12px;margin-bottom:5px;display:flex;align-items:center;gap:9px;">
-      <div style="width:3px;height:34px;border-radius:2px;background:${typeColor(c.type)};flex-shrink:0;"></div>
-      <div><div style="font-size:13px;font-weight:600;">${c.name} <span style="font-size:11px;color:var(--sub)">${c.time}</span></div>
-      <div style="font-size:11px;color:var(--sub);">Staff: ${sNames(c.staff)}</div></div></div>`).join('')
+  document.getElementById('dash-today').innerHTML=tod.length?tod.map(c=>{const eff=getEffective(c,todDs);const sn=(eff.staff||[]).map(id=>{const s=staffList.find(x=>x.id===id);return s?s.name.split(' ')[0]:'?';}).join(', ')||'Unassigned';return `<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px 12px;margin-bottom:5px;display:flex;align-items:center;gap:9px;"><div style="width:3px;height:34px;border-radius:2px;background:${typeColor(c.type)};flex-shrink:0;"></div><div><div style="font-size:13px;font-weight:600;">${c.name} <span style="font-size:11px;color:var(--sub)">${eff.time||c.time||''}</span></div><div style="font-size:11px;color:var(--sub);">Staff: ${sn}</div>${eff.cover?`<div style="font-size:10px;color:var(--purple-lt);">👥 Cover active</div>`:''}</div></div>`;}).join('')
     :'<div class="empty">📅 No classes today</div>';
 }
 
 // ── CANCELLATIONS ─────────────────────────────────────────
 // Format: 'classId_dateStr' e.g. '2_2026-03-10'
 let cancelledClasses = new Set();
+// classOverrides[classId][dateStr] = {time, staff, cancelled, cover:{staffId,coveringFor}}
+let classOverrides = {};
 
 function cancelKey(classId, dateStr){ return classId+'_'+dateStr; }
 function isCancelled(classId, dateStr){ return cancelledClasses.has(cancelKey(classId,dateStr)); }
@@ -1567,57 +1174,62 @@ function changeWeek(){}// legacy no-op
 function renderSchedCompBanner(){}// legacy no-op
 
 function renderSchedule(){
+  const MONTHS_ARR=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const DAYS_ARR=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const DAYS_SHORT=['Su','Mo','Tu','We','Th','Fr','Sa'];
   const lbl=document.getElementById('sched-month-lbl');
-  if(lbl) lbl.textContent=MONTHS[schedMonth]+' '+schedYear;
+  if(lbl) lbl.textContent=MONTHS_ARR[schedMonth]+' '+schedYear;
   const cal=document.getElementById('sched-month-cal');
   if(!cal) return;
   cal.innerHTML='';
   const grid=document.createElement('div');
   grid.className='mcal';
-  const tod=new Date();
-  DAYS.forEach((d,i)=>{
+  const today=new Date();
+  DAYS_SHORT.forEach(d=>{
     const dh=document.createElement('div');
-    dh.className='mcal-dh';
-    dh.textContent=d.slice(0,2);
-    grid.appendChild(dh);
+    dh.className='mcal-dh';dh.textContent=d;grid.appendChild(dh);
   });
   const firstDay=new Date(schedYear,schedMonth,1).getDay();
   const daysInMonth=new Date(schedYear,schedMonth+1,0).getDate();
   for(let i=0;i<firstDay;i++){const e=document.createElement('div');e.className='mcal-day empty';grid.appendChild(e);}
   for(let d=1;d<=daysInMonth;d++){
-    const dow=(firstDay+d-1)%7;
-    const dateStr=schedYear+'-'+String(schedMonth+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
-    const isToday=tod.getFullYear()===schedYear&&tod.getMonth()===schedMonth&&tod.getDate()===d;
-    const dayCls=classes.filter(c=>c.day===dow);
+    const dt=new Date(schedYear,schedMonth,d);
+    const ds=schedYear+'-'+(schedMonth+1)+'-'+d;
+    const isToday=isSameDay(dt,today);
+    const dow=dt.getDay();
+    // Get recurring classes for this day
+    const dayCls=classes.filter(c=>classOccursOn(c,dt));
     const dayComps=competitions.filter(c=>{
-      const cs=new Date(c.start+'T00:00:00'),ce=new Date(c.end+'T00:00:00'),dt=new Date(dateStr+'T00:00:00');
+      const cs=parseDateStr(c.start),ce=parseDateStr(c.end);
       return dt>=cs&&dt<=ce;
     });
-    const daySpecial=specialDates.filter(s=>s.date===dateStr);
+    const daySpecial=specialDates.filter(s=>s.date===ds);
     const cell=document.createElement('div');
     cell.className='mcal-day'+(isToday?' today':'');
+    cell.onclick=()=>openSchedDayModal(ds,d,dow);
     let html=`<div class="mcal-daynum">${d}</div>`;
     dayComps.forEach(comp=>{
-      const cs=new Date(comp.start+'T00:00:00'),dt=new Date(dateStr+'T00:00:00');
-      const isStart=dt.getTime()===cs.getTime();
-      const staffOut=(comp.staff||[]).map(id=>{const s=staffList.find(x=>x.id===id);return s?s.name.split(' ')[0]:null;}).filter(Boolean);
-      html+=`<div class="mcal-comp" onclick="openSchedDayModal('${dateStr}',${d},${dow})">
-        <div class="mcal-comp-name">🏆 ${isStart?comp.name:'↔ '+comp.name}</div>
-        ${isStart&&staffOut.length?`<div style="font-size:8px;color:#e05555;">${staffOut.join(', ')}</div>`:''}
-      </div>`;
+      const cs=parseDateStr(comp.start);
+      const isStart=isSameDay(dt,cs);
+      html+=`<div class="mcal-comp">🏆 ${isStart?comp.name:'↔ '+comp.name}</div>`;
     });
     daySpecial.forEach(s=>{
-      html+=`<div class="mcal-special"><div class="mcal-special-txt">📌 ${s.note}</div></div>`;
+      html+=`<div class="mcal-special">📌 ${s.note}</div>`;
     });
     dayCls.slice(0,3).forEach(c=>{
+      const eff=getEffective(c,ds);
       const col=typeColor(c.type);
-      const cancelled=isCancelled(c.id,dateStr);
-      const bg=cancelled?'#1a1a1a':''+col+'18';
-      const border=cancelled?'#333':''+col;
-      html+=`<div class="mcal-class" style="background:${bg};border-left:2px solid ${border};opacity:${cancelled?0.55:1};" onclick="openSchedDayModal('${dateStr}',${d},${dow})">
-        <div class="mcal-class-name" style="${cancelled?'text-decoration:line-through;color:var(--sub)':''}">${cancelled?'🚫 ':''} ${c.name}</div>
-        <div class="mcal-class-time" style="${cancelled?'color:#444':''}">${cancelled?'Cancelled':c.time+' · '+sNames(c.staff,true)}</div>
+      const cancelled=eff.cancelled;
+      const bg=cancelled?'#1a1a1a':`${col}18`;
+      html+=`<div class="mcal-class" style="background:${bg};border-left:2px solid ${cancelled?'#333':col};opacity:${cancelled?.55:1};" onclick="event.stopPropagation();openSchedDayModal('${ds}',${d},${dow})">
+        <div class="mcal-class-name" style="${cancelled?'text-decoration:line-through;color:var(--sub)':'color:'+col}">${cancelled?'🚫 ':''} ${c.name}</div>
+        <div class="mcal-class-time" style="font-size:8px;color:var(--sub);">${cancelled?'Cancelled':(eff.time||c.time||'')}${eff.modified&&!cancelled?' ⚡':''}</div>
       </div>`;
+      if(eff.cover){
+        const covStaff=staffList.find(s=>s.id===eff.cover.staffId);
+        const covFor=staffList.find(s=>s.id===eff.cover.coveringFor);
+        if(covStaff&&covFor) html+=`<div class="cover-badge">👥 ${covStaff.name.split(' ')[0]} covering ${covFor.name.split(' ')[0]}</div>`;
+      }
     });
     if(dayCls.length>3) html+=`<div class="mcal-more">+${dayCls.length-3} more</div>`;
     cell.innerHTML=html;
@@ -1626,57 +1238,53 @@ function renderSchedule(){
   cal.appendChild(grid);
 }
 
+
 function openSchedDayModal(dateStr,d,dow){
-  const dayCls=classes.filter(c=>c.day===dow);
+  const MONTHS_A=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const DAYS_A=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const dt=parseDateStr(dateStr);
+  const dayCls=classes.filter(c=>classOccursOn(c,dt));
   const dayComps=competitions.filter(c=>{
-    const cs=new Date(c.start+'T00:00:00'),ce=new Date(c.end+'T00:00:00'),dt=new Date(dateStr+'T00:00:00');
+    const cs=parseDateStr(c.start),ce=parseDateStr(c.end);
     return dt>=cs&&dt<=ce;
   });
   const daySpecial=specialDates.filter(s=>s.date===dateStr);
-  document.getElementById('day-title').textContent=DAYS[dow]+', '+MONTHS[schedMonth]+' '+d+', '+schedYear;
+  document.getElementById('day-title').textContent=DAYS_A[dow]+', '+MONTHS_A[dt.getMonth()]+' '+d+', '+schedYear;
   let html='';
   if(dayComps.length){
     html+='<div class="slbl" style="font-size:10px;margin-bottom:6px;">Competitions</div>';
     dayComps.forEach(comp=>{
-      const staffPills=(comp.staff||[]).map(id=>{const s=staffList.find(x=>x.id===id);return s?`<span style="font-size:10px;padding:2px 7px;border-radius:6px;background:var(--card2);color:var(--sub);border:1px solid var(--border)">${s.name}</span>`:null;}).filter(Boolean).join(' ');
-      const teamPills=(comp.teams||[]).map(t=>{const tm=TEAMS.find(x=>x.name===t);return `<span style="font-size:9px;padding:1px 6px;border-radius:6px;font-weight:700;background:${tm?tm.color+'22':'#222'};color:${tm?tm.color:'#888'}">${t}</span>`;}).join('');
       html+=`<div class="cday-comp" style="margin-bottom:8px;">
         <div style="font-family:var(--fd);font-size:14px;font-weight:700;color:var(--red);letter-spacing:1px;text-transform:uppercase;margin-bottom:3px;">🏆 ${comp.name}</div>
-        <div style="font-size:11px;color:var(--sub);">📅 ${compDateLabel(comp)}</div>
         ${comp.venue?`<div style="font-size:11px;color:var(--sub);">📍 ${comp.venue}</div>`:''}
         ${comp.notes?`<div style="font-size:11px;color:var(--sub);margin-top:2px;">${comp.notes}</div>`:''}
-        <div style="display:flex;flex-wrap:wrap;gap:3px;margin-top:5px;">${teamPills}</div>
-        ${staffPills?`<div style="margin-top:5px;"><div style="font-size:10px;color:var(--sub);margin-bottom:3px;text-transform:uppercase;letter-spacing:1px;">Staff Attending</div><div style="display:flex;flex-wrap:wrap;gap:4px;">${staffPills}</div></div>`:''}
-        <button onclick="openEditComp(${comp.id});closeModal('m-day')" style="margin-top:8px;background:transparent;border:1px solid var(--red);color:var(--red);border-radius:5px;padding:4px 12px;font-family:var(--fd);font-size:11px;font-weight:700;cursor:pointer;">Edit Competition</button>
+        <button onclick="openEditComp(${comp.id});closeModal('m-day')" style="margin-top:6px;background:transparent;border:1px solid var(--red);color:var(--red);border-radius:5px;padding:4px 12px;font-family:var(--fd);font-size:11px;font-weight:700;cursor:pointer;">Edit Competition</button>
       </div>`;
     });
   }
   if(daySpecial.length){
-    html+='<div class="slbl" style="font-size:10px;margin-bottom:6px;">Special Notes</div>';
     daySpecial.forEach(s=>{html+=`<div style="background:var(--blue-bg);border-left:3px solid var(--blue);border-radius:5px;padding:7px 10px;font-size:12px;color:var(--blue-lt);margin-bottom:5px;">📌 ${s.note}</div>`;});
   }
   if(dayCls.length){
-    html+=`<div class="slbl" style="font-size:10px;margin-bottom:6px;">Classes Every ${DAYS[dow]}</div>`;
+    html+=`<div class="slbl" style="font-size:10px;margin-bottom:6px;">Classes</div>`;
     dayCls.forEach(c=>{
+      const eff=getEffective(c,dateStr);
       const col=typeColor(c.type);
-      const staffFull=(c.staff||[]).map(id=>{const s=staffList.find(x=>x.id===id);return s?s.name:null;}).filter(Boolean).join(', ')||'Unassigned';
-      const cancelled=isCancelled(c.id,dateStr);
-      const cardBg=cancelled?'#1a1a1a':col+'10';
-      const cardBorder=cancelled?'#e05555':col;
-      html+=`<div class="cday-class" style="background:${cardBg};border-left-color:${cardBorder};margin-bottom:7px;${cancelled?'opacity:0.8':''}">
+      const staffNames=(eff.staff||[]).map(id=>{const s=staffList.find(x=>x.id===id);return s?s.name:'?';}).join(', ')||'Unassigned';
+      const cancelled=eff.cancelled;
+      html+=`<div class="cday-class" style="background:${cancelled?'#1a1a1a':col+'10'};border-left-color:${cancelled?'#e05555':col};margin-bottom:7px;${cancelled?'opacity:0.8':''}">
         <div style="display:flex;align-items:center;gap:7px;margin-bottom:3px;">
           <div style="width:8px;height:8px;border-radius:50%;background:${cancelled?'#e05555':col};flex-shrink:0;"></div>
           <span style="font-size:13px;font-weight:600;${cancelled?'text-decoration:line-through;color:var(--sub)':''}">${c.name}</span>
-          <span style="font-size:11px;color:var(--sub);">${c.time}</span>
+          <span style="font-size:11px;color:var(--sub);">${eff.time||c.time||''}</span>
           ${cancelled?'<span style="font-size:10px;padding:2px 7px;border-radius:8px;background:#2a0d0d;color:#e05555;font-weight:700;font-family:var(--fd);">CANCELLED</span>':''}
+          ${eff.modified&&!cancelled?'<span style="font-size:9px;padding:1px 5px;border-radius:6px;background:var(--amber-bg);color:var(--amber-lt);font-weight:700;">MODIFIED</span>':''}
         </div>
-        <div style="font-size:11px;color:${cancelled?'#444':'var(--sub)'};">Staff: ${staffFull}</div>
-        ${cancelled?`<div style="font-size:11px;color:var(--sub);margin-top:2px;font-style:italic;">This date only — future ${DAYS[dow]} classes unaffected</div>`:''}
-        <div style="display:flex;gap:6px;margin-top:6px;">
-          <button onclick="toggleCancelClass(${c.id},'${dateStr}')" style="background:${cancelled?'var(--green-bg)':'#2a0d0d'};border:1px solid ${cancelled?'var(--green)':'#e05555'};color:${cancelled?'var(--green-lt)':'#e05555'};border-radius:5px;padding:4px 12px;font-family:var(--fd);font-size:11px;font-weight:700;cursor:pointer;letter-spacing:.5px;transition:all .15s;">
-            ${cancelled?'✓ Restore Class':'🚫 Cancel This Date'}
-          </button>
-          <button onclick="openEditClass(${c.id});closeModal('m-day')" style="background:transparent;border:1px solid var(--border2);color:var(--sub);border-radius:5px;padding:4px 10px;font-family:var(--fd);font-size:11px;font-weight:700;cursor:pointer;">Edit Class</button>
+        <div style="font-size:11px;color:var(--sub);">Staff: ${staffNames}</div>
+        ${eff.cover?`<div style="font-size:11px;color:var(--purple-lt);margin-top:2px;">👥 ${(staffList.find(s=>s.id===eff.cover.staffId)||{name:'?'}).name} covering for ${(staffList.find(s=>s.id===eff.cover.coveringFor)||{name:'?'}).name}</div>`:''}
+        <div style="display:flex;gap:5px;margin-top:7px;">
+          <button onclick="openOverrideModal(${c.id},'${dateStr}');closeModal('m-day')" style="flex:1;background:var(--amber-bg);border:1px solid var(--amber);color:var(--amber-lt);border-radius:5px;padding:4px 0;font-family:var(--fd);font-size:10px;font-weight:700;cursor:pointer;letter-spacing:.5px;">⚡ Edit This Date Only</button>
+          <button onclick="openEditClass(${c.id});closeModal('m-day')" style="flex:1;background:var(--card2);border:1px solid var(--border2);color:var(--sub);border-radius:5px;padding:4px 0;font-family:var(--fd);font-size:10px;font-weight:700;cursor:pointer;">Edit Series</button>
         </div>
       </div>`;
     });
@@ -1685,7 +1293,7 @@ function openSchedDayModal(dateStr,d,dow){
     html+=`<div style="text-align:center;padding:20px;color:var(--sub);">
       <div style="font-size:24px;margin-bottom:6px;">📅</div>
       <div style="font-size:13px;">Nothing scheduled</div>
-      <button onclick="document.getElementById('cl-day').selectedIndex=${dow};openNewClass();openModal('m-addclass');closeModal('m-day')" style="margin-top:10px;background:var(--red);border:none;color:white;border-radius:6px;padding:7px 16px;font-family:var(--fd);font-size:13px;font-weight:700;cursor:pointer;letter-spacing:1px;">+ Add Class</button>
+      <button onclick="document.getElementById('cl-day').value=${dow};openNewClass();openModal('m-addclass');closeModal('m-day')" style="margin-top:10px;background:var(--red);border:none;color:white;border-radius:6px;padding:7px 16px;font-family:var(--fd);font-size:13px;font-weight:700;cursor:pointer;letter-spacing:1px;">+ Add Class</button>
     </div>`;
   }
   document.getElementById('day-content').innerHTML=html;
@@ -1695,61 +1303,145 @@ function openSchedDayModal(dateStr,d,dow){
 function openNewClass(){
   editClsId=null;
   document.getElementById('cls-modal-title').textContent='Add Class / Shift';
-  document.getElementById('cl-name').value='';document.getElementById('cl-time').value='';
+  document.getElementById('cl-name').value='';
+  document.getElementById('cl-time').value='';
+  document.getElementById('cl-startdate').value='';
+  document.getElementById('cl-enddate').value='';
+  document.getElementById('cl-startdate-row').style.display='none';
+  document.getElementById('cl-enddate-row').style.display='none';
   document.getElementById('del-cls-btn').style.display='none';
-  selType='tots';document.querySelectorAll('.cpsw').forEach(s=>s.classList.toggle('sel',s.dataset.type==='tots'));
+  selType='tots';
+  document.querySelectorAll('.cpsw').forEach(s=>s.classList.toggle('sel',s.dataset.type==='tots'));
+  selRecur='weekly';
+  document.querySelectorAll('.recur-btn').forEach(b=>b.classList.toggle('active',b.dataset.recur==='weekly'));
   buildClsStaffPicker([]);
 }
 function openEditClass(id){
   const c=classes.find(x=>x.id===id);if(!c)return;
   editClsId=id;
-  document.getElementById('cls-modal-title').textContent='Edit Class';
+  document.getElementById('cls-modal-title').textContent='Edit Class / Series';
   document.getElementById('cl-name').value=c.name;
-  document.getElementById('cl-day').selectedIndex=c.day;
-  document.getElementById('cl-time').value=c.time;
-  document.getElementById('cl-slot').value=c.slot;
-  selType=c.type;document.querySelectorAll('.cpsw').forEach(s=>s.classList.toggle('sel',s.dataset.type===c.type));
+  document.getElementById('cl-time').value=c.time||'';
+  document.getElementById('cl-startdate').value=c.startDate||'';
+  document.getElementById('cl-enddate').value=c.endDate||'';
+  document.getElementById('cl-startdate-row').style.display='block';
+  document.getElementById('cl-enddate-row').style.display='block';
+  selType=c.type||'tots';
+  document.querySelectorAll('.cpsw').forEach(s=>s.classList.toggle('sel',s.dataset.type===c.type));
+  selRecur=c.recur||'weekly';
+  document.querySelectorAll('.recur-btn').forEach(b=>b.classList.toggle('active',b.dataset.recur===(c.recur||'weekly')));
+  const dow=c.day;
+  document.getElementById('cl-day').value=dow;
   document.getElementById('del-cls-btn').style.display='block';
   buildClsStaffPicker(c.staff||[]);
   openModal('m-addclass');
 }
-function buildClsStaffPicker(selIds){
-  const el=document.getElementById('cl-staff-picker');el.innerHTML='';
+function pickType(el){document.querySelectorAll('.cpsw').forEach(s=>s.classList.remove('sel'));el.classList.add('sel');selType=el.dataset.type;}
+
+
+// ── RECURRENCE HELPERS ──────────────────────────────────
+function pickRecur(el){
+  selRecur = el.dataset.recur;
+  document.querySelectorAll('.recur-btn').forEach(b=>b.classList.remove('active'));
+  el.classList.add('active');
+  const showDate = selRecur==='once'||selRecur==='daily'||selRecur==='biweekly'||selRecur==='monthly';
+  document.getElementById('cl-startdate-row').style.display = showDate ? 'block' : 'none';
+  document.getElementById('cl-enddate-row').style.display = (selRecur!=='once') ? 'block' : 'none';
+}
+
+function addDays(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r;}
+function parseDateStr(s){const p=s.split('-');return new Date(+p[0],+p[1]-1,+p[2]);}
+function isSameDay(a,b){return a.getFullYear()===b.getFullYear()&&a.getMonth()===b.getMonth()&&a.getDate()===b.getDate();}
+function dateStr(d){return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();}
+
+// Returns true if a class (with recurrence rules) occurs on date dt
+function classOccursOn(c, dt){
+  const dow = dt.getDay();
+  if(c.day !== dow && c.recur !== 'daily') return false;
+  const seriesStart = c.startDate ? parseDateStr(c.startDate) : new Date(2025,0,1);
+  const seriesEnd   = c.endDate   ? parseDateStr(c.endDate)   : new Date(2099,11,31);
+  if(dt < seriesStart || dt > seriesEnd) return false;
+  if(c.recur === 'once')     return isSameDay(dt, seriesStart);
+  if(c.recur === 'daily')    return true;
+  if(c.recur === 'weekly')   return true;
+  if(c.recur === 'biweekly'){
+    const diff = Math.round((dt - seriesStart) / 86400000);
+    return diff >= 0 && diff % 14 === 0;
+  }
+  if(c.recur === 'monthly'){
+    return dt.getDate() === seriesStart.getDate();
+  }
+  return true; // default weekly
+}
+
+// Get effective (possibly overridden) data for a class on a specific date
+function getEffective(c, ds){
+  const ov = (classOverrides[c.id]||{})[ds] || {};
+  return {
+    ...c,
+    time:      ov.time      !== undefined ? ov.time      : c.time,
+    staff:     ov.staff     !== undefined ? ov.staff     : (c.staff||[]),
+    cancelled: ov.cancelled !== undefined ? ov.cancelled : false,
+    cover:     ov.cover     || null,
+    modified:  Object.keys(ov).length > 0
+  };
+}
+
+// ── DATE OVERRIDE MODAL ──────────────────────────────────
+function openOverrideModal(clsId, ds){
+  const c = classes.find(x=>x.id===clsId); if(!c) return;
+  overrideEvId = clsId; overrideDateStr = ds;
+  const ov = (classOverrides[clsId]||{})[ds]||{};
+  const dt = parseDateStr(ds);
+  const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  document.getElementById('ov-title').textContent = 'Edit: '+c.name+' on '+MONTHS[dt.getMonth()]+' '+dt.getDate();
+  document.getElementById('ov-time').value = ov.time||'';
+  document.getElementById('ov-cancel').checked = ov.cancelled||false;
+  // Staff picker
+  const effStaff = ov.staff !== undefined ? ov.staff : (c.staff||[]);
+  const el = document.getElementById('ov-staff-picker'); el.innerHTML='';
   staffList.forEach(s=>{
     const item=document.createElement('div');
-    item.className='msp-item'+(selIds.includes(s.id)?' sel':'');
+    item.className='msp-item'+(effStaff.includes(s.id)?' sel':'');
     item.dataset.id=s.id;
-    item.innerHTML=`<div class="msp-cb">${selIds.includes(s.id)?'✓':''}</div><span class="msp-name">${s.name} <span style="color:var(--sub);font-size:10px;">${s.role}</span></span>`;
+    item.innerHTML=`<div class="msp-cb">${effStaff.includes(s.id)?'✓':''}</div><span>${s.name}</span>`;
     item.onclick=()=>{item.classList.toggle('sel');item.querySelector('.msp-cb').textContent=item.classList.contains('sel')?'✓':'';};
     el.appendChild(item);
   });
+  // Cover dropdowns
+  const covSel=document.getElementById('ov-cover-staff');
+  const forSel=document.getElementById('ov-cover-for');
+  covSel.innerHTML='<option value="">— None —</option>';
+  forSel.innerHTML='<option value="">— Select —</option>';
+  staffList.forEach(s=>{
+    covSel.innerHTML+=`<option value="${s.id}">${s.name}</option>`;
+    forSel.innerHTML+=`<option value="${s.id}">${s.name}</option>`;
+  });
+  if(ov.cover){covSel.value=ov.cover.staffId||'';forSel.value=ov.cover.coveringFor||'';}
+  openModal('m-override');
 }
-function saveClass(){
-  const name=document.getElementById('cl-name').value.trim();
-  if(!name){toast('Enter a class name.');return;}
-  const day=document.getElementById('cl-day').selectedIndex;
-  const slot=parseInt(document.getElementById('cl-slot').value);
-  const time=document.getElementById('cl-time').value||'TBD';
-  const staff=[...document.querySelectorAll('.msp-item.sel')].map(el=>parseInt(el.dataset.id));
-  if(editClsId){
-    const c=classes.find(x=>x.id===editClsId);
-    if(c){c.name=name;c.day=day;c.slot=slot;c.time=time;c.staff=staff;c.type=selType;}
-    toast('Class updated!');pushNotif('Schedule updated: '+name,'ni-b');
-  } else {
-    classes.push({id:++clsId,day,slot,name,time,staff,type:selType});
-    toast('Class added!');pushNotif('New class added: '+name,'ni-b');
+function saveOverride(){
+  if(!overrideEvId||!overrideDateStr) return;
+  if(!classOverrides[overrideEvId]) classOverrides[overrideEvId]={};
+  const staff=[...document.querySelectorAll('#ov-staff-picker .msp-item.sel')].map(el=>parseInt(el.dataset.id));
+  const time=document.getElementById('ov-time').value||'';
+  const cancelled=document.getElementById('ov-cancel').checked;
+  const covStaffId=document.getElementById('ov-cover-staff').value;
+  const covForId=document.getElementById('ov-cover-for').value;
+  const cover=(covStaffId&&covForId)?{staffId:parseInt(covStaffId),coveringFor:parseInt(covForId)}:null;
+  classOverrides[overrideEvId][overrideDateStr]={staff,time,cancelled,cover};
+  closeModal('m-override');
+  renderSchedule();renderDashboard();
+  const c=classes.find(x=>x.id===overrideEvId);
+  if(cancelled) pushNotif((c?c.name:'Class')+' cancelled on '+overrideDateStr,'ni-a');
+  if(cover){
+    const cov=staffList.find(s=>s.id===cover.staffId);
+    const cf=staffList.find(s=>s.id===cover.coveringFor);
+    if(cov&&cf) pushNotif(cov.name+' covering for '+cf.name+' — '+(c?c.name:''),'ni-b');
   }
-  closeModal('m-addclass');renderSchedule();renderStaff();renderDashboard();save();
+  save();
+  toast('Date override saved!');
 }
-function deleteEditingClass(){
-  if(!editClsId)return;
-  const c=classes.find(x=>x.id===editClsId);
-  pendingConfirm={action:'delClass',id:editClsId};
-  document.getElementById('conf-title').textContent='Remove Class';
-  document.getElementById('conf-body').textContent=`Remove "${c?c.name:'this class'}"? This cannot be undone.`;
-  closeModal('m-addclass');openModal('m-confirm');
-}
-function pickType(el){document.querySelectorAll('.cpsw').forEach(s=>s.classList.remove('sel'));el.classList.add('sel');selType=el.dataset.type;}
 
 
 // ── STAFF WEEKLY CLASS ASSIGNMENTS ───────────────────────
@@ -1931,6 +1623,7 @@ function renderStaff(){
         </div>
       </div>
       <div class="sc-teams">${teamTags}</div>
+      ${s.devClasses&&s.devClasses.length?`<div style="margin-bottom:6px;"><div style="font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#444;font-family:var(--fd);font-weight:700;margin-bottom:4px;">Dev Classes</div><div style="display:flex;flex-wrap:wrap;gap:3px;">${(s.devClasses||[]).map(c=>`<span class="ttag" style="background:var(--teal-bg);color:var(--teal);">${c}</span>`).join("")}</div></div>`:""}
       <div class="sc-week"><div class="scwl" style="display:flex;align-items:center;justify-content:space-between;">This week's classes <button onclick="event.stopPropagation();openStaffWeek(${s.id})" style="background:var(--red);border:none;color:#fff;border-radius:4px;padding:2px 8px;font-family:var(--fd);font-size:9px;font-weight:700;letter-spacing:.5px;cursor:pointer;">Edit Week</button></div>${clsHtml}</div>
       <div class="sc-acts"><button class="sca sca-e" onclick="openEditStaff(${s.id})">Edit</button><button class="sca sca-r" onclick="confirmRemoveStaff(${s.id})">Remove</button></div>`;
     grid.appendChild(card);
@@ -1963,46 +1656,78 @@ function buildTeamPicks(sel){
     el.appendChild(b);
   });
 }
+
+function buildDevClassPicks(selCls){
+  const el=document.getElementById('st-devcls-picks');
+  if(!el) return;
+  el.innerHTML='';
+  DEV_CLASSES.forEach(c=>{
+    const btn=document.createElement('button');
+    const sel=(selCls||[]).includes(c);
+    btn.className='dev-cls-btn'+(sel?' active':'');
+    btn.textContent=c;
+    btn.dataset.cls=c;
+    btn.dataset.sel=sel?'1':'0';
+    btn.onclick=()=>{
+      const s=btn.dataset.sel==='1';
+      btn.dataset.sel=s?'0':'1';
+      btn.classList.toggle('active',!s);
+    };
+    el.appendChild(btn);
+  });
+}
+
 function openNewStaff(){
   editStId=null;
   document.getElementById('staff-modal-title').textContent='Add Staff Member';
   ['st-first','st-last','st-email','st-phone'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('st-status').value='avail';
   document.getElementById('del-staff-btn').style.display='none';
-  buildTeamPicks([]);populateRoleDrop();
+  buildTeamPicks([]);
+  buildDevClassPicks([]);
+  populateRoleDrop();
 }
+
 function openEditStaff(id){
   const s=staffList.find(x=>x.id===id);if(!s)return;
   editStId=id;
   document.getElementById('staff-modal-title').textContent='Edit Staff Member';
-  document.getElementById('st-first').value=s.name.split(' ')[0];
-  document.getElementById('st-last').value=s.name.split(' ').slice(1).join(' ');
+  const nm=s.name.split(' ');
+  document.getElementById('st-first').value=nm[0]||'';
+  document.getElementById('st-last').value=nm.slice(1).join(' ')||'';
   document.getElementById('st-email').value=s.email||'';
   document.getElementById('st-phone').value=s.phone||'';
-  document.getElementById('st-status').value=s.status;
+  document.getElementById('st-status').value=s.status||'avail';
   document.getElementById('del-staff-btn').style.display='block';
-  buildTeamPicks(s.teams||[]);populateRoleDrop();
-  document.getElementById('st-role').value=s.role;
+  populateRoleDrop();
+  document.getElementById('st-role').value=s.role||'';
+  buildTeamPicks(s.teams||[]);
+  buildDevClassPicks(s.devClasses||[]);
   openModal('m-addstaff');
 }
+
 function saveStaff(){
   const first=document.getElementById('st-first').value.trim();
   if(!first){toast('Enter a name.');return;}
-  const name=first+' '+document.getElementById('st-last').value.trim();
+  const last=document.getElementById('st-last').value.trim();
+  const name=(first+' '+last).trim();
   const role=document.getElementById('st-role').value;
-  const email=document.getElementById('st-email').value;
-  const phone=document.getElementById('st-phone').value;
+  const email=document.getElementById('st-email').value.trim();
+  const phone=document.getElementById('st-phone').value.trim();
   const status=document.getElementById('st-status').value;
   const teams=[...document.querySelectorAll('#st-team-picks button')].filter(b=>b.dataset.sel==='1').map(b=>b.dataset.team);
+  const devClasses=[...document.querySelectorAll('#st-devcls-picks button')].filter(b=>b.dataset.sel==='1').map(b=>b.dataset.cls);
   if(editStId){
     const s=staffList.find(x=>x.id===editStId);
-    if(s)Object.assign(s,{name:name.trim(),role,email,phone,status,teams});
-    toast(name.trim()+' updated!');
+    if(s) Object.assign(s,{name,role,email,phone,status,teams,devClasses});
+    toast('Staff updated!');
   } else {
-    staffList.push({id:++stId,name:name.trim(),role,email,phone,av:stId%9,status,teams});
-    toast(name.trim()+' added!');pushNotif(name.trim()+' added to staff','ni-g');
+    staffList.push({id:++stId,name,role,email,phone,status,teams,devClasses});
+    toast('Staff added!');pushNotif('New staff: '+name,'ni-g');
   }
   closeModal('m-addstaff');renderStaff();renderDashboard();save();
 }
+
 function deleteEditingStaff(){
   if(!editStId)return;
   const s=staffList.find(x=>x.id===editStId);
@@ -2067,14 +1792,34 @@ function renderNotifLog(){
 function updateAbsMlbl(){document.getElementById('abs-mlbl').textContent=MONTHS[absMonth]+' '+absYear;}
 function changeAbsMonth(d){absMonth+=d;if(absMonth<0){absMonth=11;absYear--;}if(absMonth>11){absMonth=0;absYear++;}updateAbsMlbl();renderAbsences();}
 function buildTeamFilters(){
-  const el=document.getElementById('team-filters');el.innerHTML='';
-  ['All',...TEAMS.map(t=>t.name)].forEach(n=>{
+  const el=document.getElementById('team-filters');
+  if(!el) return;
+  el.innerHTML='';
+  const allBtn=document.createElement('button');
+  allBtn.className='tf'+(absTeam==='all'?' active':'');
+  allBtn.textContent='All Teams';
+  allBtn.onclick=()=>{
+    absTeam='all';
+    document.querySelectorAll('.tf').forEach(b=>b.classList.remove('active'));
+    allBtn.classList.add('active');
+    renderAbsences();
+  };
+  el.appendChild(allBtn);
+  TEAMS.forEach(t=>{
     const b=document.createElement('button');
-    b.className='tf'+(n==='All'?' active':'');
-    b.textContent=n;b.onclick=()=>setAbsTeam(n);
+    b.className='tf'+(absTeam===t.name?' active':'');
+    b.style.cssText=`border-color:${t.color}55;`;
+    b.innerHTML=`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${t.color};margin-right:4px;vertical-align:middle;"></span>${t.name}`;
+    b.onclick=()=>{
+      absTeam=t.name;
+      document.querySelectorAll('.tf').forEach(x=>x.classList.remove('active'));
+      b.classList.add('active');
+      renderAbsences();
+    };
     el.appendChild(b);
   });
 }
+
 function setAbsTeam(name){
   absTeam=name;
   document.querySelectorAll('.tf').forEach(b=>b.classList.toggle('active',b.textContent===name));
@@ -2084,137 +1829,144 @@ function getDayClasses(dow){
   return classes.filter(c=>c.day===dow);
 }
 function renderAbsences(){
-  const cal=document.getElementById('abs-cal');cal.innerHTML='';
-  ['Su','Mo','Tu','We','Th','Fr','Sa'].forEach(d=>{const h=document.createElement('div');h.className='adh';h.textContent=d;cal.appendChild(h);});
-  const first=new Date(absYear,absMonth,1).getDay();
-  const dim=new Date(absYear,absMonth+1,0).getDate();
+  const MONTHS_A=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const DAYS_A=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const DAYS_S=['Su','Mo','Tu','We','Th','Fr','Sa'];
+  updateAbsMlbl();
+  // Calendar header
+  const hdr=document.getElementById('abs-cal-hdr');
+  if(hdr) hdr.innerHTML=DAYS_S.map(d=>`<div style="background:var(--card);border-radius:4px;padding:4px;text-align:center;font-family:var(--fd);font-size:10px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:var(--sub);">${d}</div>`).join('');
+  const cal=document.getElementById('abs-cal');
+  if(!cal) return;
+  const y=absYear||new Date().getFullYear(), m=absMonth!==undefined?absMonth:new Date().getMonth();
+  const firstDay=new Date(y,m,1).getDay();
+  const daysInMonth=new Date(y,m+1,0).getDate();
   const today=new Date();
-  for(let i=0;i<first;i++){const e=document.createElement('div');e.className='ad empty';cal.appendChild(e);}
-  for(let d=1;d<=dim;d++){
-    const k=dk(absYear,absMonth,d);
-    let pracs=[],abs=[];
-    const teams=absTeam==='All'?TEAMS.map(t=>t.name):[absTeam];
-    teams.forEach(tn=>{
-      const td=absData[tn];if(!td)return;
-      if(td.practices[k])pracs.push(...td.practices[k].map(p=>({text:p,team:tn})));
-      if(td.absences[k])abs.push(...td.absences[k].map(a=>{const o=Object.assign({},a);o.team=tn;return o;}));
+  let html='';
+  for(let i=0;i<firstDay;i++) html+='<div class="abs-cal-day empty"></div>';
+  for(let d=1;d<=daysInMonth;d++){
+    const dt=new Date(y,m,d);
+    const ds=y+'-'+(m+1)+'-'+d;
+    const isToday=(today.getFullYear()===y&&today.getMonth()===m&&today.getDate()===d);
+    const isSel=(absSelectedDate===ds);
+    // Check if any visible team has absences
+    const visTeams=absTeam==='all'?TEAMS:TEAMS.filter(t=>t.name===absTeam);
+    let hasAbs=false;
+    visTeams.forEach(t=>{
+      const a=(TEAM_ABS_DATA[t.name]||{absences:{}}).absences||{};
+      if((a[ds]||[]).length>0) hasAbs=true;
     });
-    const isToday=today.getFullYear()===absYear&&today.getMonth()===absMonth&&today.getDate()===d;
-    const day=document.createElement('div');
-    day.className='ad'+(abs.length?' habd':'')+(pracs.length?' pday':'');
-    day.style.minHeight='72px';
-    let html=`<div class="adn" style="${isToday?'color:var(--red)':''}">${d}</div>`;
-    // Practice entries from sheet
-    if(pracs.length){
-      pracs.slice(0,2).forEach(p=>{
-        const tm=TEAMS.find(t=>t.name===p.team);
-        const isClosed=p.text.includes('CLOSED')||p.text.includes('NO TEAM')||p.text.includes('NO PRACTICE')||p.text.includes('Break');
-        html+=`<div style="border-left:2px solid ${isClosed?'var(--sub)':'var(--green-lt)'};background:${isClosed?'#1a1a1a':'#0a1f10'};border-radius:2px;padding:1px 4px;margin-bottom:2px;">
-          <div style="font-size:8px;font-weight:700;color:${isClosed?'var(--sub)':'var(--green-lt)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.text.split(':')[0].split('—')[0].trim()}</div>
-        </div>`;
-      });
-      if(pracs.length>2) html+=`<div style="font-size:8px;color:var(--sub);">+${pracs.length-2} more</div>`;
-    }
-    // Athlete absences from sheet
-    if(abs.length){
-      if(pracs.length) html+=`<div style="border-top:1px dashed #252525;margin-top:2px;padding-top:2px;"></div>`;
-      abs.slice(0,3).forEach(a=>{
-        const cc=a.type==='camp'?'ac-c':a.type==='doc'?'ac-d':'ac-o';
-        html+=`<div class="adc ${cc}">${a.name}</div>`;
-      });
-      if(abs.length>3) html+=`<div class="adm">+${abs.length-3} out</div>`;
-    }
-    day.innerHTML=html;
-    day.onclick=()=>openAbsDay(d,pracs,abs);
-    cal.appendChild(day);
+    html+=`<div class="abs-cal-day${isSel?' selected':hasAbs?' has-abs':''}" onclick="selectAbsDate('${ds}')">
+      <div style="font-family:var(--fd);font-size:11px;font-weight:700;color:${isToday?'var(--red)':'var(--sub)'};">${d}</div>
+      ${hasAbs?'<div style="width:6px;height:6px;border-radius:50%;background:#e05555;margin:2px auto 0;"></div>':''}
+    </div>`;
   }
+  cal.innerHTML=html;
+  renderAbsTeamBlocks();
+}
+
+const TEAM_ABS_DATA={
+  'Envy':{absences:{
+    '2025-6-2':[{name:'Emma',type:'oot',note:'OOT'}],
+    '2025-6-23':[{name:'Emma',type:'oot',note:'OOT'},{name:'Lillian',type:'camp',note:'Camp 8:30–11:30 AM'}],
+    '2025-7-2':[{name:'Emma',type:'oot',note:'OOT'},{name:'Lillian',type:'oot',note:'OOT'},{name:'Kataleya',type:'oot',note:'OOT'}],
+    '2025-7-6':[{name:'Charlotte',type:'oot',note:'OOT'},{name:'Emma',type:'oot',note:'OOT'},{name:'Lillian',type:'oot',note:'OOT'}],
+    '2025-7-20':[{name:'Mae',type:'oot',note:'OOT'},{name:'Emma',type:'oot',note:'OOT'},{name:'Kylee',type:'oot',note:'OOT'}],
+  }},
+  'Sr. Black':{absences:{
+    '2025-6-9':[{name:'Mikayla H.',type:'oot',note:'Out of town church camp'},{name:'Ryleigh',type:'oot',note:'OOT cheer camp'},{name:'Halle',type:'oot',note:'OOT church camp'}],
+    '2025-6-16':[{name:'Lula',type:'camp',note:'Camp 1:30–4'},{name:'Halle',type:'camp',note:'Cheer camp TBD'}],
+    '2025-6-23':[{name:'Ryleigh',type:'oot',note:'OOT'},{name:'Lula',type:'camp',note:'HS Camp'}],
+    '2025-7-14':[{name:'Brantlie',type:'camp',note:'FHS Cheer 8:30am–12pm'}],
+    '2025-7-28':[{name:'Maddie',type:'oot',note:'Softball game — leaving at 6:00'}],
+  }},
+  'Fire':{absences:{
+    '2025-6-9':[{name:'Makayla',type:'oot',note:'Out'}],
+    '2025-6-16':[{name:'Ryleigh',type:'oot',note:'Out in evening'}],
+  }},
+  'Recon':{absences:{
+    '2025-6-19':[{name:'Nixon',type:'oot',note:'OOT'},{name:'Kaylee',type:'oot',note:'Out of town'}],
+    '2025-6-22':[{name:'Nixon',type:'oot',note:'OOT'},{name:'Halle',type:'oot',note:'Basketball tourney'}],
+    '2025-7-9':[{name:'Macayla J.',type:'oot',note:'Out of town'}],
+    '2025-7-24':[{name:'Aria',type:'oot',note:'Vacation'},{name:'Finley',type:'oot',note:'Vacation'}],
+  }},
+  '806 Crew':{absences:{
+    '2025-6-20':[{name:'Ansley',type:'oot',note:'OOT'},{name:'Tatum',type:'oot',note:'Concert in Houston'}],
+    '2025-6-23':[{name:'Narigha',type:'oot',note:'MHS bball 9:30am-12pm'}],
+    '2025-7-9':[{name:'Ryleigh',type:'oot',note:'OOT'},{name:'Ansley',type:'oot',note:'OOT'}],
+  }},
+  'Diamonds':{absences:{
+    '2025-6-9':[{name:'Brantlie',type:'camp',note:'FHS Cheer 8:30am-12pm'},{name:'Makayla',type:'oot',note:'Out'}],
+    '2025-6-17':[{name:'Hope',type:'camp',note:'Cheer camp 8-4'},{name:'Ava',type:'oot',note:'Work 6-10pm'}],
+    '2025-6-22':[{name:'TC',type:'oot',note:'Mexico'},{name:'Harper',type:'oot',note:'Driving test 10:30'}],
+    '2025-7-25':[{name:'Ellie',type:'oot',note:'OOT'},{name:'Isabella',type:'oot',note:'OOT'}],
+  }}
+};
+
+function selectAbsDate(ds){
+  absSelectedDate=(absSelectedDate===ds)?null:ds;
+  renderAbsences();
+}
+
+function renderAbsTeamBlocks(){
+  const el=document.getElementById('abs-team-blocks');
+  if(!el) return;
+  const MONTHS_A=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const DAYS_A=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  if(!absSelectedDate){
+    el.innerHTML='<div style="text-align:center;padding:24px;color:#444;font-size:13px;">📅 Select a date above to see who is missing</div>';
+    return;
+  }
+  const dt=parseDateStr(absSelectedDate);
+  const visTeams=absTeam==='all'?TEAMS:TEAMS.filter(t=>t.name===absTeam);
+  // Also show scheduled classes for context
+  const dayCls=classes.filter(c=>classOccursOn(c,dt));
+  let html='';
+  if(dayCls.length){
+    html+=`<div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:10px;">
+      <div style="font-family:var(--fd);font-size:11px;font-weight:700;letter-spacing:1px;color:var(--sub);text-transform:uppercase;margin-bottom:8px;">Classes This Day</div>
+      ${dayCls.map(c=>{
+        const eff=getEffective(c,absSelectedDate);
+        const staffNames=(eff.staff||[]).map(id=>{const s=staffList.find(x=>x.id===id);return s?s.name.split(' ')[0]:'?';}).join(', ')||'Unassigned';
+        return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #1a1a1a;">
+          <div style="width:6px;height:6px;border-radius:50%;background:${typeColor(c.type)};flex-shrink:0;"></div>
+          <span style="font-size:12px;font-weight:600;">${c.name}</span>
+          <span style="font-size:11px;color:var(--sub);">${eff.time||c.time||''}</span>
+          <span style="font-size:10px;color:#444;margin-left:auto;">${staffNames}</span>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+  visTeams.forEach(t=>{
+    const absData=(TEAM_ABS_DATA[t.name]||{absences:{}}).absences||{};
+    const missing=absData[absSelectedDate]||[];
+    html+=`<div style="background:var(--card);border:1px solid var(--border);border-left:3px solid ${t.color};border-radius:10px;padding:13px 15px;margin-bottom:8px;">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+        <div style="width:10px;height:10px;border-radius:50%;background:${t.color};flex-shrink:0;"></div>
+        <div style="font-family:var(--fd);font-size:16px;font-weight:700;letter-spacing:1px;text-transform:uppercase;">${t.name}</div>
+        <div style="font-size:11px;color:var(--sub);margin-left:auto;">${DAYS_A[dt.getDay()]}, ${MONTHS_A[dt.getMonth()]} ${dt.getDate()}, ${dt.getFullYear()}</div>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:5px;">`;
+    if(!missing.length){
+      html+=`<span style="font-size:10px;padding:3px 9px;border-radius:8px;background:var(--green-bg);color:var(--green-lt);border:1px solid var(--green);font-weight:600;">✅ All Present</span>`;
+    } else {
+      missing.forEach(a=>{
+        const cls=a.type==='camp'?'background:var(--purple-bg);color:var(--purple-lt);border-color:var(--purple);':
+                  a.type==='doc'?'background:var(--blue-bg);color:var(--blue-lt);border-color:var(--blue);':
+                  'background:#2a0d0d;color:#e05555;border-color:#5a1a1a;';
+        html+=`<span style="font-size:10px;padding:3px 9px;border-radius:8px;border:1px solid;font-weight:600;${cls}" title="${a.note||''}">${a.name}${a.note?' — '+a.note:''}</span>`;
+      });
+    }
+    html+='</div></div>';
+  });
+  el.innerHTML=html;
 }
 
 function openAbsDay(d,pracs,abs){
-  const dow=new Date(absYear,absMonth,d).getDay();
-  document.getElementById('day-title').textContent=DAYS[dow]+', '+MONTHS[absMonth]+' '+d+', '+absYear;
-  let html='';
-
-  // PRACTICE SCHEDULE from team Google Sheets
-  if(pracs.length){
-    html+='<div style="margin-bottom:12px;">';
-    html+='<div class="slbl" style="font-size:10px;margin-bottom:6px;">Practice Schedule</div>';
-    // Group by team if showing All
-    const byTeam={};
-    pracs.forEach(p=>{
-      if(!byTeam[p.team]) byTeam[p.team]=[];
-      byTeam[p.team].push(p.text);
-    });
-    Object.entries(byTeam).forEach(([team,ps])=>{
-      const tm=TEAMS.find(t=>t.name===team);
-      const isClosed=ps.some(p=>p.includes('CLOSED')||p.includes('NO TEAM')||p.includes('NO PRACTICE')||p.includes('Break'));
-      html+=`<div style="background:${isClosed?'#1c1c1c':'var(--green-bg)'};border:1px solid ${isClosed?'var(--border)':'rgba(39,174,96,.3)'};border-radius:8px;padding:10px 12px;margin-bottom:6px;">`;
-      if(absTeam==='All') html+=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:5px;"><div style="width:7px;height:7px;border-radius:50%;background:${tm?tm.color:'#888'};"></div><span style="font-size:11px;font-weight:700;color:${tm?tm.color:'#888'};">${team}</span></div>`;
-      ps.forEach(p=>{
-        const isCl=p.includes('CLOSED')||p.includes('NO TEAM')||p.includes('NO PRACTICE')||p.includes('Break');
-        html+=`<div style="font-size:12px;font-weight:600;color:${isCl?'var(--sub)':'var(--green-lt)'};padding:2px 0;">${p}</div>`;
-      });
-      html+=`</div>`;
-    });
-    html+='</div>';
-  }
-
-  // ABSENCES — who is out
-  if(abs.length){
-    html+=`<div style="margin-bottom:12px;">`;
-    html+=`<div class="slbl" style="font-size:10px;margin-bottom:6px;">Athletes Out (${abs.length})</div>`;
-
-    // Group absences by team for clarity
-    const byTeam={};
-    abs.forEach(a=>{
-      if(!byTeam[a.team]) byTeam[a.team]=[];
-      byTeam[a.team].push(a);
-    });
-    Object.entries(byTeam).forEach(([team,athletes])=>{
-      const tm=TEAMS.find(t=>t.name===team);
-      html+=`<div style="background:var(--card);border:1px solid var(--border);border-radius:8px;padding:9px 11px;margin-bottom:6px;">`;
-      if(absTeam==='All') html+=`<div style="display:flex;align-items:center;gap:6px;margin-bottom:7px;"><div style="width:7px;height:7px;border-radius:50%;background:${tm?tm.color:'#888'};"></div><span style="font-size:11px;font-weight:700;color:${tm?tm.color:'#888'};">${team}</span><span style="font-size:10px;color:var(--sub);">${athletes.length} out</span></div>`;
-      athletes.forEach(a=>{
-        const col=a.type==='camp'?'var(--blue)':a.type==='doc'?'var(--amber)':'var(--red)';
-        const lbl=a.type==='camp'?'Camp':a.type==='doc'?'Doctor':'OOT';
-        const noteTxt=a.note&&a.note!==lbl?` — ${a.note}`:'';
-        html+=`<div style="display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid #1a1a1a;font-size:12px;">
-          <div style="width:7px;height:7px;border-radius:50%;background:${col};flex-shrink:0;"></div>
-          <span style="font-weight:600;flex:1;">${a.name}</span>
-          <span style="font-size:10px;padding:2px 8px;border-radius:8px;background:${col}22;color:${col};font-weight:700;">${lbl}${noteTxt}</span>
-        </div>`;
-      });
-      html+=`</div>`;
-    });
-    html+=`</div>`;
-  }
-
-  if(!pracs.length&&!abs.length){
-    html=`<div style="text-align:center;padding:24px;color:var(--sub);">
-      <div style="font-size:28px;margin-bottom:6px;">✓</div>
-      <div style="font-size:13px;">No practices or absences logged for this day.</div>
-    </div>`;
-  }
-
-  // SHEET LINKS
-  const sheets=absTeam==='All'?TEAMS:TEAMS.filter(t=>t.name===absTeam);
-  html+=`<div style="border-top:1px solid var(--border);padding-top:10px;margin-top:4px;">
-    <div style="font-size:10px;color:var(--sub);letter-spacing:1px;text-transform:uppercase;margin-bottom:6px;">Athletes update directly in Google Sheets ↓</div>
-    <div style="display:flex;flex-direction:column;gap:4px;">`;
-  sheets.forEach(t=>{
-    html+=`<a href="https://docs.google.com/spreadsheets/d/${t.sheet}/edit" target="_blank"
-      style="display:flex;align-items:center;gap:8px;background:var(--card);border:1px solid var(--border);border-radius:6px;padding:7px 10px;text-decoration:none;transition:border-color .15s;"
-      onmouseover="this.style.borderColor='${t.color}'" onmouseout="this.style.borderColor='var(--border)'">
-      <div style="width:8px;height:8px;border-radius:50%;background:${t.color};flex-shrink:0;"></div>
-      <span style="font-size:12px;color:var(--blue-lt);font-weight:600;">${t.name} — Open Sheet ↗</span>
-    </a>`;
-  });
-  html+=`</div></div>`;
-  document.getElementById('day-content').innerHTML=html;
-  openModal('m-day');
+  // Legacy stub — use selectAbsDate and renderAbsTeamBlocks instead
+  if(d) selectAbsDate(d);
 }
 
-// ROLES
 function addRole(){
   const val=document.getElementById('role-inp').value.trim();
   if(!val)return;
@@ -2353,40 +2105,7 @@ function closeModal(id){document.getElementById(id).classList.remove('open');}
 document.querySelectorAll('.mo').forEach(el=>el.addEventListener('click',e=>{if(e.target===el)closeModal(el.id);}));
 
 // CONFIRM
-function runConfirm(){
-  if(!pendingConfirm)return;
-  const {action,id}=pendingConfirm;
-  if(action==='delClass'){
-    const c=classes.find(x=>x.id===id);
-    classes=classes.filter(x=>x.id!==id);
-    toast((c?c.name:'Class')+' removed.');
-    pushNotif('Class removed: '+(c?c.name:''),'ni-r');
-    renderSchedule();renderStaff();renderDashboard();save();
-  } else if(action==='delStaff'){
-    const s=staffList.find(x=>x.id===id);
-    staffList=staffList.filter(x=>x.id!==id);
-    classes.forEach(c=>{if(c.staff)c.staff=c.staff.filter(sid=>sid!==id);});
-    toast((s?s.name:'Staff member')+' removed.');
-    renderStaff();renderDashboard();renderSchedule();save();
-  } else if(action==='delComp'){
-    const c=competitions.find(x=>x.id===id);
-    competitions=competitions.filter(x=>x.id!==id);
-    toast((c?c.name:'Competition')+' deleted.');
-    renderCompetitions();renderSchedule();save();
-  } else if(action==='resetSeason'){
-    staffList=[];classes=[];requests=[];swaps=[];staffNotifLog=[];
-    cancelledClasses=new Set();weeklyAssignments={};competitions=[];specialDates=[];
-    clsId=100;stId=10;compId=50;
-    toast('Season reset. Fresh start!');
-    renderDashboard();renderSchedule();renderStaff();renderRequests();renderCompetitions();save();
-  }
-  pendingConfirm=null;closeModal('m-confirm');
-}
-
-// ── LIVE GOOGLE SHEETS SYNC ───────────────────────────────
-const NETLIFY_BASE = 'https://rxhub.netlify.app';
-
-// CSV export URLs — these work when sheets are published to web (File > Share > Publish to web > CSV)
+// runConfirm defined below
 function sheetCsvUrl(sheetId){
   return `https://docs.google.com/spreadsheets/d/${sheetId}/export?format=csv&gid=0`;
 }
@@ -2550,7 +2269,7 @@ async function syncSheets(){
       // Only update if we got real data
       const hasData=Object.keys(practices).length>0||Object.keys(absences).length>0;
       if(hasData){
-        absData[TEAMS[i].name]={practices,absences};
+        TEAM_ABS_DATA[TEAMS[i].name]={absences};
         successCount++;
       }
     }
@@ -2610,21 +2329,7 @@ async function autoSyncOnLoad(){
 }
 
 // SEASON RESET
-function confirmReset(){
-  pendingConfirm={action:'resetSeason'};
-  document.getElementById('conf-title').textContent='Reset Season?';
-  document.getElementById('conf-body').textContent='This will remove ALL staff, classes, competitions and requests. Google Sheets athlete data is not affected. Cannot be undone.';
-  openModal('m-confirm');
-}
-
-// ── COMPETITIONS ─────────────────────────────────────────
-let compId=50, compFilter='all', editCompId=null;
-
-let competitions=[
-  {id:1,name:'NCA Dallas',venue:'Kay Bailey Hutchison Convention Center, Dallas TX',start:'2026-01-16',end:'2026-01-18',notes:'Check-in Fri 3pm · Prelims Sat 8am · Finals Sun 10am',teams:['Envy','Sr. Black','Diamonds'],staff:[1,2,6]},
-  {id:2,name:'Spirit Cheer Lubbock',venue:'United Supermarkets Arena, Lubbock TX',start:'2026-02-07',end:'2026-02-08',notes:'Local comp — all teams attend',teams:['Envy','Sr. Black','Fire','Recon','806 Crew','Diamonds'],staff:[1,2,3,6]},
-];
-
+// confirmReset defined below
 function compStatus(c){
   const now=new Date();now.setHours(0,0,0,0);
   const s=new Date(c.start+'T00:00:00'),e=new Date(c.end+'T23:59:59');
@@ -2996,67 +2701,108 @@ function autoSendSchedules(){
 }
 
 function buildEmailBody(staffMember, weekOffset){
-  const wlbl = getWeekLabel(weekOffset||1);
-  const assigned = getStaffWeekClasses(staffMember.id, weekOffset||1);
-  const clsList = assigned.map(id=>{
-    const c = classes.find(x=>x.id===id);
-    return c ? `• ${c.name} — ${DAYS[c.day]}, ${c.time}` : null;
-  }).filter(Boolean);
-
+  const MONTHS_E=['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const DAYS_E=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const now=new Date();
+  const offset=weekOffset||1;
+  const sun=new Date(now);
+  sun.setDate(now.getDate()-now.getDay()+(offset*7));
+  sun.setHours(0,0,0,0);
+  const sat=new Date(sun);sat.setDate(sun.getDate()+6);
+  const mo=MONTHS_E.map(m=>m.slice(0,3));
+  const wlbl=mo[sun.getMonth()]+' '+sun.getDate()+' – '+mo[sat.getMonth()]+' '+sat.getDate()+', '+sat.getFullYear();
+  // Build list of this staff member's classes for the week
+  const clsList=[];
+  for(let d=new Date(sun);d<=sat;d=addDays(d,1)){
+    const ds=d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate();
+    classes.forEach(c=>{
+      if(!(c.staff||[]).includes(staffMember.id)) return;
+      if(!classOccursOn(c,d)) return;
+      const eff=getEffective(c,ds);
+      if(eff.cancelled) return;
+      if(!(eff.staff||[]).includes(staffMember.id)) return;
+      const coverNote=eff.cover?` (covering for ${(staffList.find(s=>s.id===eff.cover.coveringFor)||{name:'?'}).name})`:'';
+      clsList.push(`• ${c.name} — ${DAYS_E[d.getDay()]}, ${eff.time||c.time||'TBD'}${coverNote}`);
+    });
+  }
   // Upcoming competitions that week
-  const sun = new Date(); sun.setDate(sun.getDate()-sun.getDay()+((weekOffset||1)*7)); sun.setHours(0,0,0,0);
-  const sat = new Date(sun); sat.setDate(sun.getDate()+6); sat.setHours(23,59,59,999);
-  const weekComps = competitions.filter(c=>{
-    const cs=new Date(c.start+'T00:00:00'), ce=new Date(c.end+'T23:59:59');
-    return cs<=sat && ce>=sun;
+  const weekComps=competitions.filter(c=>{
+    const cs=parseDateStr(c.start),ce=parseDateStr(c.end);
+    return cs<=sat&&ce>=sun;
   });
-
-  return `
-    <div style="font-family:sans-serif;color:#f0f0f0;">
-      <div style="background:#CC1A1A;padding:14px 18px;border-radius:6px 6px 0 0;display:flex;align-items:center;gap:10px;">
-        <div style="font-size:20px;font-weight:900;letter-spacing:-1px;">RX</div>
-        <div>
-          <div style="font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Raider Xtreme</div>
-          <div style="font-size:10px;opacity:.8;">Weekly Schedule</div>
-        </div>
+  const portalUrl=getPortalUrl?getPortalUrl():'';
+  return `<div style="font-family:sans-serif;color:#f0f0f0;">
+    <div style="background:#CC1A1A;padding:14px 18px;border-radius:6px 6px 0 0;display:flex;align-items:center;gap:10px;">
+      <div style="font-size:20px;font-weight:900;letter-spacing:-1px;">RX</div>
+      <div><div style="font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Raider Xtreme</div><div style="font-size:10px;opacity:.8;">Weekly Schedule</div></div>
+    </div>
+    <div style="background:#1c1c1c;padding:14px 18px;">
+      <div style="font-size:13px;margin-bottom:8px;">Hi <strong>${staffMember.name.split(' ')[0]}</strong>,</div>
+      <div style="font-size:12px;color:#aaa;margin-bottom:12px;">Here's your schedule for the week of <strong style="color:#f0f0f0;">${wlbl}</strong>:</div>
+      <div style="background:#111;border-radius:6px;padding:10px 14px;margin-bottom:12px;">
+        ${clsList.length?clsList.map(l=>`<div style="font-size:12px;padding:4px 0;border-bottom:1px solid #222;">${l}</div>`).join(''):'<div style="font-size:12px;color:#666;">No classes assigned this week.</div>'}
       </div>
-      <div style="background:#1c1c1c;padding:14px 18px;">
-        <div style="font-size:13px;margin-bottom:8px;">Hi <strong>${staffMember.name.split(' ')[0]}</strong>,</div>
-        <div style="font-size:12px;color:#aaa;margin-bottom:12px;">Here's your schedule for the week of <strong style="color:#f0f0f0;">${wlbl}</strong>:</div>
-        ${clsList.length ? `
-          <div style="background:#111;border-radius:6px;padding:10px 14px;margin-bottom:12px;">
-            ${clsList.map(l=>`<div style="font-size:12px;padding:4px 0;border-bottom:1px solid #222;">${l}</div>`).join('')}
-          </div>` :
-          `<div style="background:#111;border-radius:6px;padding:10px 14px;margin-bottom:12px;font-size:12px;color:#666;">No classes assigned this week.</div>`
-        }
-        ${weekComps.length ? `
-          <div style="background:#200909;border:1px solid #CC1A1A;border-radius:6px;padding:10px 14px;margin-bottom:12px;">
-            <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#CC1A1A;margin-bottom:4px;">🏆 Competitions This Week</div>
-            ${weekComps.map(c=>`<div style="font-size:12px;padding:3px 0;">${c.name} — ${compDateLabel(c)}</div>`).join('')}
-          </div>` : ''}
-        <div style="background:#1a1a2a;border:1px solid #2980b9;border-radius:6px;padding:10px 14px;font-size:12px;color:#5aaee0;">
-          Need to request time off or a change?<br/>
-          <a href="${getEmailPortalUrl()}" style="color:#5aaee0;font-weight:600;">Submit a request here →</a><br/>
-          <span style="font-size:10px;color:#444;margin-top:4px;display:block;">Changes must be requested — do not contact the scheduler directly.</span>
-        </div>
+      ${weekComps.length?`<div style="background:#200909;border:1px solid #CC1A1A;border-radius:6px;padding:10px 14px;margin-bottom:12px;">
+        <div style="font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#CC1A1A;margin-bottom:4px;">🏆 Competitions This Week</div>
+        ${weekComps.map(c=>`<div style="font-size:12px;padding:3px 0;">${c.name} — ${compDateLabel(c)}</div>`).join('')}
+      </div>`:''}
+      <div style="background:#1a1a2a;border:1px solid #2980b9;border-radius:6px;padding:10px 14px;font-size:12px;color:#5aaee0;">
+        Need to request time off or a change?<br/>
+        <a href="${portalUrl}" style="color:#5aaee0;font-weight:600;">Submit a request here →</a><br/>
+        <span style="font-size:10px;color:#444;margin-top:4px;display:block;">Changes must be requested — do not contact the scheduler directly.</span>
       </div>
-      <div style="background:#111;padding:8px 18px;border-radius:0 0 6px 6px;font-size:10px;color:#444;text-align:center;">
-        Raider Xtreme · Lubbock, TX · This is an automated message
-      </div>
-    </div>`;
+    </div>
+    <div style="background:#111;padding:8px 18px;border-radius:0 0 6px 6px;font-size:10px;color:#444;text-align:center;">
+      Raider Xtreme · Lubbock, TX · This is an automated message
+    </div>
+  </div>`;
 }
 
 function sendScheduleNow(){
-  // Build preview for first staff member (or generic)
+  // Populate individual staff dropdown
+  const sel=document.getElementById('email-target-staff');
+  if(sel){
+    sel.innerHTML='<option value="all">All Staff (weekly auto-send)</option>';
+    staffList.filter(s=>s.email&&s.email.trim()).forEach(s=>{
+      sel.innerHTML+=`<option value="${s.id}">${s.name}</option>`;
+    });
+  }
+  // Build initial preview
   const preview = staffList[0]
     ? buildEmailBody(staffList[0], 1)
-    : '<div style="color:var(--sub);padding:20px;text-align:center;">Add staff members first</div>';
+    : '<div style="color:var(--sub);padding:20px;text-align:center;">Add staff members with emails first</div>';
   document.getElementById('email-preview-body').innerHTML = preview;
   openModal('m-email-preview');
 }
 
+function updateEmailPreview(){
+  const sel=document.getElementById('email-target-staff');
+  if(!sel) return;
+  const val=sel.value;
+  let preview;
+  if(val==='all'){
+    preview=staffList[0]?buildEmailBody(staffList[0],1):'<div style="color:var(--sub);padding:20px;text-align:center;">No staff added yet</div>';
+  } else {
+    const s=staffList.find(x=>x.id===parseInt(val));
+    preview=s?buildEmailBody(s,1):'<div style="color:var(--sub);padding:20px;text-align:center;">Staff not found</div>';
+  }
+  document.getElementById('email-preview-body').innerHTML=preview;
+}
+
 function confirmSendNow(){
-  autoSendSchedules();
+  const sel=document.getElementById('email-target-staff');
+  const val=sel?sel.value:'all';
+  if(val==='all'){
+    autoSendSchedules();
+  } else {
+    const s=staffList.find(x=>x.id===parseInt(val));
+    if(s){
+      staffNotifLog.unshift({who:s.name,email:s.email,msg:`📅 Individual schedule sent for upcoming week`,time:'Just now',color:'var(--blue)'});
+      renderNotifLog();
+      pushNotif('Schedule sent to '+s.name,'ni-g');
+      toast('✅ Schedule sent to '+s.name);
+    }
+  }
   closeModal('m-email-preview');
 }
 
@@ -3074,6 +2820,63 @@ function toast(msg){
   t.textContent=msg;t.classList.add('show');
   setTimeout(()=>t.classList.remove('show'),2800);
 }
+
+</script>
+</body>
+</htmlfunction saveClass(){
+  const name=document.getElementById('cl-name').value.trim();
+  if(!name){toast('Enter a class name.');return;}
+  const day=parseInt(document.getElementById('cl-day').value);
+  const time=document.getElementById('cl-time').value||'';
+  const startDate=document.getElementById('cl-startdate').value||'';
+  const endDate=document.getElementById('cl-enddate').value||'';
+  const staff=[...document.querySelectorAll('#cl-staff-picker .msp-item.sel')].map(el=>parseInt(el.dataset.id));
+  if(editClsId){
+    const c=classes.find(x=>x.id===editClsId);
+    if(c){Object.assign(c,{name,day,time,type:selType,recur:selRecur,startDate,endDate,staff});}
+    toast('Class updated!');pushNotif('Schedule updated: '+name,'ni-b');
+  } else {
+    classes.push({id:++clsId,day,name,time,type:selType,recur:selRecur,startDate,endDate,staff});
+    toast('Class added!');pushNotif('New class: '+name,'ni-b');
+  }
+  closeModal('m-addclass');renderSchedule();renderStaff();renderDashboard();save();
+}
+function deleteEditingClass(){
+  if(!editClsId) return;
+  const c=classes.find(x=>x.id===editClsId);
+  pendingConfirm={action:'delClass',id:editClsId};
+  document.getElementById('conf-title').textContent='Remove Class';
+  document.getElementById('conf-body').textContent=`Remove "${c?c.name:'this class'}" and all its date overrides? Cannot be undone.`;
+  closeModal('m-addclass');openModal('m-confirm');
+}
+
+function runConfirm(){
+  if(!pendingConfirm) return;
+  const {action,id}=pendingConfirm;
+  if(action==='delClass'){
+    classes=classes.filter(x=>x.id!==id);
+    delete classOverrides[id];
+    renderSchedule();renderDashboard();
+  }
+  if(action==='delStaff'){staffList=staffList.filter(x=>x.id!==id);renderStaff();renderDashboard();}
+  if(action==='delComp'){competitions=competitions.filter(x=>x.id!==id);renderCompetitions();}
+  if(action==='resetSeason'){
+    staffList=[];classes=[];classOverrides={};requests=[];swaps=[];
+    competitions=[];specialDates=[];
+    renderDashboard();renderSchedule();renderStaff();renderRequests();
+    renderAbsences();renderCompetitions();
+  }
+  save();closeModal('m-confirm');pendingConfirm=null;toast('Done.');
+}
+
+function confirmReset(){
+  pendingConfirm={action:'resetSeason'};
+  document.getElementById('conf-title').textContent='Reset Season?';
+  document.getElementById('conf-body').textContent='Remove all staff, classes, and competitions? Cannot be undone.';
+  openModal('m-confirm');
+}
+
+
 
 init();
 </script>
