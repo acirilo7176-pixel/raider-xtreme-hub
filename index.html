@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>Raider Xtreme — Manager Hub</title>
 <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet"/>
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{
@@ -303,7 +306,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     </div>
   </div>
   <div class="tbr">
-    <div class="sync-badge" onclick="syncSheets()" title="Sync Google Sheets"><div class="sync-dot"></div><span id="sync-lbl">Sheets Live</span></div>
+    <div class="sync-badge" onclick="syncSheets()" title="Sync with Firebase Cloud"><div class="sync-dot"></div><span id="sync-lbl">Connecting…</span></div>
     <button class="notif-btn" onclick="toggleNotif(event)">🔔 <span class="nbadge" id="nbadge">0</span></button>
     <div class="mpill">Manager</div>
   </div>
@@ -454,7 +457,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     <button class="bd" onclick="confirmReset()">Reset Season</button>
   </div>
   <div style="background:var(--card);border:1px solid var(--border);border-radius:10px;padding:13px 14px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
-    <div><div style="font-size:13px;font-weight:600;">Clear Saved Data</div><div style="font-size:11px;color:var(--sub);margin-top:2px;">Wipes localStorage and reloads defaults. Use if data gets corrupted.</div></div>
+    <div><div style="font-size:13px;font-weight:600;">Clear Saved Data</div><div style="font-size:11px;color:var(--sub);margin-top:2px;">Wipes localStorage &amp; Firebase cloud data and reloads defaults.</div></div>
     <button onclick="clearSavedState()" style="background:var(--card2);border:1px solid var(--border2);color:var(--sub);border-radius:6px;padding:6px 12px;font-family:var(--fd);font-size:12px;font-weight:700;letter-spacing:1px;cursor:pointer;">Clear Cache</button>
   </div>
 </div>
@@ -1247,7 +1250,7 @@ function sNames(ids,short=false){
 }
 
 function init(){
-  loadState(); // load saved data first
+  loadState(); // load localStorage immediately for instant display
   buildTeamNav();buildTeamFilters();buildSettingsSheets();
   renderDashboard();renderSchedule();renderStaff();renderRequests();renderAbsences();renderCompetitions();
   renderNotifications();renderRoles();renderDates();renderSettingsRoles();
@@ -1256,66 +1259,206 @@ function init(){
   initEmailScheduler();
   checkPortalMode();
   initPortalUrl();
-  // Attempt live sync in background (non-blocking)
+
+  // Initialize Firebase and load cloud data
+  initFirebase();
+  loadFromFirebase(()=>{
+    setupFirebaseListener();
+  });
+  // Attempt Google Sheets sync in background (non-blocking)
   autoSyncOnLoad();
 }
 
-// ── LOCALSTORAGE PERSISTENCE ──────────────────────────────
-const LS_KEY = 'rx_hub_v1';
+// ── FIREBASE PERSISTENCE ─────────────────────────────────
+// 🔧 SETUP: Replace with your Firebase project config
+// Go to: console.firebase.google.com → your project → Project Settings → Your apps → Config
+const FIREBASE_CONFIG = {
+  apiKey:            "AIzaSyA0hznS4ucAErYYLtS5aNY-gB3Rkwfa5Ik",
+  authDomain:        "rxschedule-9b748.firebaseapp.com",
+  databaseURL:       "https://rxschedule-9b748-default-rtdb.firebaseio.com",
+  projectId:         "rxschedule-9b748",
+  storageBucket:     "rxschedule-9b748.firebasestorage.app",
+  messagingSenderId: "178772437463",
+  appId:             "1:178772437463:web:b4285cd746e91d55f94392"
+};
 
-function saveState(){
+const LS_KEY = 'rx_hub_v1'; // still used as local cache
+const FB_PATH = 'rx_hub';   // Realtime DB root path
+
+let firebaseReady = false;
+let fbDb = null;
+let fbSaveTimer = null;
+
+function initFirebase(){
   try {
-    const state = {
-      staffList,
-      classes,
-      requests,
-      swaps,
-      roles,
-      specialDates,
-      competitions,
-      notifs,
-      staffNotifLog,
-      weeklyAssignments,
-      cancelledClasses: [...cancelledClasses],
-      TEAMS: TEAMS.map(t=>({name:t.name,color:t.color,sheet:t.sheet})),
-      clsId, stId, compId
-    };
-    localStorage.setItem(LS_KEY, JSON.stringify(state));
-  } catch(e){ console.warn('Save failed:', e); }
+    if(!firebase.apps.length){
+      firebase.initializeApp(FIREBASE_CONFIG);
+    }
+    fbDb = firebase.database();
+    firebaseReady = true;
+    setSyncStatus('connecting');
+    console.log('Firebase initialized');
+  } catch(e){
+    console.warn('Firebase init failed:', e);
+    firebaseReady = false;
+    setSyncStatus('offline');
+  }
+}
+
+function setSyncStatus(status){
+  const lbl = document.getElementById('sync-lbl');
+  const dot = document.querySelector('.sync-dot');
+  if(!lbl) return;
+  if(status === 'synced'){
+    lbl.textContent = 'Cloud Synced';
+    if(dot){ dot.style.background='var(--green-lt)'; }
+  } else if(status === 'saving'){
+    lbl.textContent = 'Saving…';
+    if(dot){ dot.style.background='var(--amber-lt)'; }
+  } else if(status === 'connecting'){
+    lbl.textContent = 'Connecting…';
+    if(dot){ dot.style.background='var(--amber-lt)'; }
+  } else {
+    lbl.textContent = 'Local Only';
+    if(dot){ dot.style.background='#555'; }
+  }
+}
+
+function getState(){
+  return {
+    staffList,
+    classes,
+    requests,
+    swaps,
+    roles,
+    specialDates,
+    competitions,
+    notifs,
+    staffNotifLog,
+    weeklyAssignments,
+    cancelledClasses: [...cancelledClasses],
+    TEAMS: TEAMS.map(t=>({name:t.name,color:t.color,sheet:t.sheet})),
+    clsId, stId, compId
+  };
+}
+
+function applyState(s){
+  if(!s) return;
+  if(s.staffList)     staffList = s.staffList;
+  if(s.classes)       classes = s.classes;
+  if(s.requests)      requests = s.requests;
+  if(s.swaps)         swaps = s.swaps;
+  if(s.roles)         roles = s.roles;
+  if(s.specialDates)  specialDates = s.specialDates;
+  if(s.competitions)  competitions = s.competitions;
+  if(s.notifs)        notifs = s.notifs;
+  if(s.staffNotifLog) staffNotifLog = s.staffNotifLog;
+  if(s.weeklyAssignments) weeklyAssignments = s.weeklyAssignments;
+  if(s.cancelledClasses)  cancelledClasses = new Set(s.cancelledClasses);
+  if(s.TEAMS) s.TEAMS.forEach((t,i)=>{ if(TEAMS[i]){ TEAMS[i].color=t.color; TEAMS[i].sheet=t.sheet; }});
+  if(s.clsId !== undefined)  clsId = s.clsId;
+  if(s.stId !== undefined)   stId = s.stId;
+  if(s.compId !== undefined) compId = s.compId;
+}
+
+// Debounced Firebase save — batches rapid changes into one write
+function save(){
+  // 1. Always write to localStorage immediately as local cache
+  try { localStorage.setItem(LS_KEY, JSON.stringify(getState())); } catch(e){}
+
+  // 2. Debounce the Firebase write (500ms)
+  if(fbSaveTimer) clearTimeout(fbSaveTimer);
+  setSyncStatus('saving');
+  fbSaveTimer = setTimeout(()=>{
+    if(firebaseReady && fbDb){
+      fbDb.ref(FB_PATH).set(getState())
+        .then(()=>{ setSyncStatus('synced'); })
+        .catch(e=>{ console.warn('Firebase save error:', e); setSyncStatus('offline'); });
+    } else {
+      setSyncStatus('offline');
+    }
+  }, 500);
 }
 
 function loadState(){
+  // Load from localStorage immediately for instant display
   try {
     const raw = localStorage.getItem(LS_KEY);
-    if(!raw) return; // first run — use defaults
-    const s = JSON.parse(raw);
-    if(s.staffList)     staffList = s.staffList;
-    if(s.classes)       classes = s.classes;
-    if(s.requests)      requests = s.requests;
-    if(s.swaps)         swaps = s.swaps;
-    if(s.roles)         roles = s.roles;
-    if(s.specialDates)  specialDates = s.specialDates;
-    if(s.competitions)  competitions = s.competitions;
-    if(s.notifs)        notifs = s.notifs;
-    if(s.staffNotifLog) staffNotifLog = s.staffNotifLog;
-    if(s.weeklyAssignments) weeklyAssignments = s.weeklyAssignments;
-    if(s.cancelledClasses)  cancelledClasses = new Set(s.cancelledClasses);
-    if(s.TEAMS) s.TEAMS.forEach((t,i)=>{ if(TEAMS[i]){ TEAMS[i].color=t.color; TEAMS[i].sheet=t.sheet; }});
-    if(s.clsId)  clsId = s.clsId;
-    if(s.stId)   stId = s.stId;
-    if(s.compId) compId = s.compId;
-  } catch(e){ console.warn('Load failed:', e); }
+    if(raw) applyState(JSON.parse(raw));
+  } catch(e){ console.warn('Local load failed:', e); }
+}
+
+function loadFromFirebase(callback){
+  if(!firebaseReady || !fbDb){ callback && callback(); return; }
+  fbDb.ref(FB_PATH).once('value')
+    .then(snapshot=>{
+      const data = snapshot.val();
+      if(data){
+        applyState(data);
+        // Update local cache
+        try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch(e){}
+        setSyncStatus('synced');
+        // Re-render everything with fresh data
+        renderDashboard(); renderSchedule(); renderStaff();
+        renderRequests(); renderAbsences(); renderCompetitions();
+        renderNotifications(); renderRoles(); renderDates();
+        renderSettingsRoles(); buildTeamNav(); buildTeamFilters();
+        updateBadge(); populateRoleDrop();
+        console.log('Loaded from Firebase');
+      } else {
+        // No data in Firebase yet — push our defaults up
+        save();
+        setSyncStatus('synced');
+        console.log('No Firebase data found — pushed defaults');
+      }
+      callback && callback();
+    })
+    .catch(e=>{
+      console.warn('Firebase load error:', e);
+      setSyncStatus('offline');
+      callback && callback();
+    });
+}
+
+// Setup real-time listener for multi-device sync
+function setupFirebaseListener(){
+  if(!firebaseReady || !fbDb) return;
+  fbDb.ref(FB_PATH).on('value', snapshot=>{
+    // Only apply remote changes — not our own saves (which already updated local state)
+    // We detect "remote" by checking if a save isn't in-flight
+    if(fbSaveTimer) return; // our own write is pending, skip
+    const data = snapshot.val();
+    if(!data) return;
+    applyState(data);
+    try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch(e){}
+    // Silently refresh UI
+    renderDashboard(); renderSchedule(); renderStaff();
+    renderRequests(); renderAbsences(); renderCompetitions();
+    renderNotifications(); updateBadge();
+    setSyncStatus('synced');
+  });
 }
 
 function clearSavedState(){
-  localStorage.removeItem(LS_KEY);
-  toast('Cache cleared — reloading defaults...');
-  setTimeout(()=>window.location.reload(), 1200);
+  if(confirm('Clear ALL saved data (local + cloud) and reload defaults?')){
+    try { localStorage.removeItem(LS_KEY); } catch(e){}
+    if(firebaseReady && fbDb){
+      fbDb.ref(FB_PATH).remove()
+        .then(()=>{ toast('Data cleared — reloading...'); setTimeout(()=>window.location.reload(), 1200); })
+        .catch(()=>{ toast('Local cleared — reloading...'); setTimeout(()=>window.location.reload(), 1200); });
+    } else {
+      toast('Cache cleared — reloading defaults...');
+      setTimeout(()=>window.location.reload(), 1200);
+    }
+  }
 }
 
-// Auto-save wrapper — call after every data mutation
-function save(){
-  saveState();
+// Expose manual sync trigger via the sync badge button
+function syncSheets(){
+  setSyncStatus('connecting');
+  loadFromFirebase(()=>{
+    toast('✅ Synced with cloud');
+  });
 }
 
 function nav(page,el){
